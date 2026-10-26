@@ -1,0 +1,6 @@
+{
+  "name": "AutoJourney - Smart Car Buying & Reliability Intelligence",
+  "description": "Comprehensive car purchase planner tracking mechanical failure risks, local inventory, market pricing, 5-year total ownership costs, and real-world community negotiated deals.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
