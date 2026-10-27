@@ -310,6 +310,10 @@ export interface CarJourney {
   preferredColor?: string;
   engine?: string;
   displacement?: string;
+  horsepower?: number;
+  torque?: number;
+  fuelType?: 'gas' | 'hybrid' | 'electric';
+  fuelEconomyMpg?: number;
   drivetrain?: 'FWD' | 'RWD' | 'AWD' | '4WD / 4x4' | '2WD / 4x2';
   condition: 'New' | 'Certified Pre-Owned' | 'Used';
   targetBudget: number;

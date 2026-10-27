@@ -17,6 +17,9 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // The effective whitelist for the Express+Vite middleware server lives in
+      // server.ts (passed inline); this entry covers `vite dev` / `vite preview`.
+      allowedHosts: ['hsnlxu847jqnp7jqnp7zj4jxvdy6as.js.wpenginepowered.com'],
     },
   };
 });

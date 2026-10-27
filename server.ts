@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
+import carData from './data/car-data';
 import express, { Request, Response } from 'express';
 import http from 'http';
 import path from 'path';
@@ -17,6 +18,10 @@ app.use(express.json());
 
 // Initialize Google GenAI client if key is configured
 const apiKey = process.env.GEMINI_API_KEY;
+
+// Unbounded upstream calls hang the request and the offline dataset is never
+// reached. On timeout the call throws into each endpoint's fallback path.
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 15000);
 const ai = apiKey
   ? new GoogleGenAI({
       apiKey,
@@ -24,12 +29,13 @@ const ai = apiKey
         headers: {
           'User-Agent': 'aistudio-build',
         },
+        timeout: AI_TIMEOUT_MS,
       },
     })
   : null;
 
 // Auto.dev Automotive Data API Integration (Listings, Images, Facets, and VIN Decode)
-const AUTO_DEV_API_KEY = process.env.AUTO_DEV_API_KEY || 'sk_ad_mUUfk3Q-6RblRruovsTaxOEz';
+const AUTO_DEV_API_KEY = process.env.AUTO_DEV_API_KEY || '';
 
 // Endpoint: Look up engine size/displacement, drivetrain options, and factory trims for Year, Make, Model
 // Powered by Auto.dev live automotive facets + Gemini automotive specialist
@@ -305,6 +311,12 @@ app.get('/api/auto-listings', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Make and model are required.' });
   }
 
+  if (!AUTO_DEV_API_KEY) {
+    // Live inventory is optional enrichment: no key means no feed, not a broken
+    // screen. Return a valid empty payload so the UI shows its empty state.
+    return res.json({ listings: [], total: 0, trims: [] });
+  }
+
   try {
     let url = `https://api.auto.dev/listings?vehicle.make=${encodeURIComponent(make)}&vehicle.model=${encodeURIComponent(model)}&includes=facets&limit=${limit}`;
     if (year) {
@@ -394,6 +406,12 @@ app.get('/api/vin-decode/:vin', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'VIN is required.' });
   }
 
+  if (!AUTO_DEV_API_KEY) {
+    return res.status(503).json({
+      error: 'AUTO_DEV_API_KEY is not configured on the server, so VIN decoding is unavailable.',
+    });
+  }
+
   try {
     const [decodeRes, listingsRes] = await Promise.all([
       fetch(`https://api.auto.dev/vin/${encodeURIComponent(vin)}`, {
@@ -450,10 +468,10 @@ app.post('/api/reliability-analysis', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Make and model are required.' });
   }
 
-  if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server. Please check the Secrets panel.',
-    });
+    if (!ai) {
+    return res.json(
+      carData.getReliabilityAnalysis(year, make, model, trim, engine, drivetrain, mileage)
+    );
   }
 
   try {
@@ -590,7 +608,10 @@ Include:
     return res.json(parsed);
   } catch (error: any) {
     console.error('Error generating reliability analysis:', error);
-    return res.status(500).json({ error: error.message || 'Failed to analyze reliability' });
+        console.warn('Gemini failed for /api/reliability-analysis, serving offline dataset:', error?.message || error);
+    return res.json(
+      carData.getReliabilityAnalysis(year, make, model, trim, engine, drivetrain, mileage)
+    );
   }
 });
 
@@ -601,10 +622,8 @@ app.post('/api/scout-deals', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Make and model are required.' });
   }
 
-  if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server.',
-    });
+    if (!ai) {
+    return res.json(carData.getDealScout(year, make, model, trim, zipCode, condition));
   }
 
   try {
@@ -704,7 +723,8 @@ Format as JSON with:
     return res.json(parsed);
   } catch (error: any) {
     console.error('Error scouting deals:', error);
-    return res.status(500).json({ error: error.message || 'Failed to scout deals' });
+        console.warn('Gemini failed for /api/scout-deals, serving offline dataset:', error?.message || error);
+    return res.json(carData.getDealScout(year, make, model, trim, zipCode, condition));
   }
 });
 
@@ -712,10 +732,8 @@ Format as JSON with:
 app.post('/api/analyze-dealer-quote', async (req: Request, res: Response) => {
   const { carDescription, lineItemsText, rawQuote } = req.body;
 
-  if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server.',
-    });
+    if (!ai) {
+    return res.json(carData.analyzeDealQuote(carDescription, lineItemsText, rawQuote));
   }
 
   try {
@@ -778,7 +796,8 @@ Provide:
     return res.json(parsed);
   } catch (error: any) {
     console.error('Error analyzing quote:', error);
-    return res.status(500).json({ error: error.message || 'Failed to analyze quote' });
+        console.warn('Gemini failed for /api/analyze-dealer-quote, serving offline dataset:', error?.message || error);
+    return res.json(carData.analyzeDealQuote(carDescription, lineItemsText, rawQuote));
   }
 });
 
@@ -1365,9 +1384,18 @@ async function startServer() {
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
+    // Vite blocks any Host header it has not allow-listed (DNS rebinding guard)
+    // with 403 "Blocked request". Behind a public hostname -- e.g. WP Engine's
+    // Node hosting -- that host must be listed, and it must be passed INLINE: a
+    // `server` block in vite.config.ts does not reach the resolved config here.
+    // Restrict with VITE_ALLOWED_HOSTS="a.example.com,b.example.com".
+    const allowedHosts: string[] | true = process.env.VITE_ALLOWED_HOSTS
+      ? process.env.VITE_ALLOWED_HOSTS.split(',').map((h) => h.trim()).filter(Boolean)
+      : true;
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
+        allowedHosts,
         hmr: false,
         watch: null,
       },
