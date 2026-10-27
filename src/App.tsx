@@ -244,10 +244,10 @@ export default function App() {
 
             <div className="space-y-2 max-w-lg mx-auto">
               <h2 className="text-2xl font-bold text-white tracking-tight">
-                No Active Car Journeys
+                Start Your Vehicle Purchase Journey
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                You've cleared your past vehicle purchase journeys. Choose a car below or configure a custom vehicle to inspect engine failure risks, local inventory, and 5-year ownership costs.
+                Configure any car, truck, or SUV to inspect mechanic-grade failure points, track listings on AutoTempest with live price drops, audit dealer quotes, and calculate true 5-year ownership costs.
               </p>
             </div>
 
@@ -264,24 +264,39 @@ export default function App() {
                 className="px-5 py-3 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors"
               >
                 <RotateCcw className="w-4 h-4 text-slate-400" />
-                Restore Sample Vehicles
+                Load Sample Vehicles
               </button>
             </div>
 
-            {/* Quick 1-Click Launch Presets */}
+            {/* Quick Presets */}
             <div className="pt-6 border-t border-slate-800/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-3">
-                Or pick a popular vehicle to start immediately:
+              <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block mb-3">
+                Or pick a popular vehicle to configure:
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
                 <div
                   onClick={() => setIsNewModalOpen(true)}
-                  className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-all hover:bg-slate-950 group"
+                  className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs">Ford F-150</span>
-                    <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      2.7L vs 3.5L vs 5.0L
+                    <span className="font-semibold text-white text-xs">2025 Ford Expedition</span>
+                    <span className="text-[11px] text-amber-400 font-medium">
+                      Tremor
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Redesigned 5th-Gen with 400 hp / 440 hp EcoBoost V6 & Control Trac 4WD.
+                  </p>
+                </div>
+
+                <div
+                  onClick={() => setIsNewModalOpen(true)}
+                  className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-white text-xs">Ford F-150</span>
+                    <span className="text-[11px] text-slate-300 font-medium font-mono">
+                      EcoBoost vs V8
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">
@@ -290,13 +305,13 @@ export default function App() {
                 </div>
 
                 <div
-                  onClick={handleResetDefaults}
-                  className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-amber-500/50 cursor-pointer transition-all hover:bg-slate-950 group"
+                  onClick={() => setIsNewModalOpen(true)}
+                  className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs">Toyota RAV4 Hybrid</span>
-                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      40 MPG · e-AWD
+                    <span className="font-semibold text-white text-xs">Toyota RAV4 Hybrid</span>
+                    <span className="text-[11px] text-emerald-400 font-medium">
+                      40 MPG · AWD
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">

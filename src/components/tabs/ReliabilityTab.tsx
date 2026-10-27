@@ -2,19 +2,14 @@ import React, { useState } from 'react';
 import { CarJourney, MechanicalIssue, PPICheckItem } from '../../types/carJourney';
 import {
   AlertTriangle,
-  Wrench,
   CheckCircle2,
   XCircle,
   HelpCircle,
   AlertCircle,
-  ShieldAlert,
-  Search,
   Filter,
-  DollarSign,
-  Gauge,
   Sparkles,
   ClipboardCheck,
-  FileText,
+  ShieldAlert,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -72,133 +67,111 @@ export const ReliabilityTab: React.FC<ReliabilityTabProps> = ({
     });
   };
 
-  // PPI Summary stats
   const totalChecks = journey.inspectionChecklist.length;
   const passedChecks = journey.inspectionChecklist.filter((c) => c.status === 'pass').length;
   const concernChecks = journey.inspectionChecklist.filter((c) => c.status === 'concern').length;
   const failedChecks = journey.inspectionChecklist.filter((c) => c.status === 'fail').length;
   const uninspectedChecks = journey.inspectionChecklist.filter((c) => c.status === 'uninspected').length;
 
-  const getSeverityBadge = (severity: MechanicalIssue['severity']) => {
+  const getSeverityTextColor = (severity: MechanicalIssue['severity']) => {
     switch (severity) {
       case 'critical':
-        return 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+        return 'text-rose-400';
       case 'high':
-        return 'text-orange-400 bg-orange-500/10 border-orange-500/20';
+        return 'text-orange-400';
       case 'moderate':
-        return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+        return 'text-amber-400';
       case 'low':
-        return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+        return 'text-emerald-400';
+      default:
+        return 'text-slate-400';
     }
   };
 
   return (
-    <div className="space-y-8">
-      {/* Overview & AI Diagnostic Summary Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-amber-400 tracking-wide uppercase">
-                Reliability Intel & Failure Risk Assessment
-              </span>
-              <span className="text-slate-600">·</span>
-              <span className="text-xs text-slate-400">
-                Ground-Truth NHTSA & Master-Tech Diagnostics
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <h2 className="text-xl sm:text-2xl font-bold text-white">
-                {journey.year} {journey.make} {journey.model}
-              </h2>
-              <span className="text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-md">
-                {journey.trim}
-              </span>
-              {journey.engine && (
-                <span className="text-xs font-medium text-slate-300 bg-slate-800 border border-slate-700 px-2.5 py-0.5 rounded-md">
-                  {journey.engine}
-                </span>
-              )}
-              {journey.drivetrain && (
-                <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md">
-                  {journey.drivetrain}
-                </span>
-              )}
-            </div>
+    <div className="space-y-6">
+      {/* Overview & Mechanic Brief */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+          <div>
+            <h2 className="text-base font-semibold text-white tracking-tight">
+              Reliability & Known Mechanical Risks
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Grounded in NHTSA safety complaints, technical service bulletins, and master technician archives.
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onTriggerAiScan}
-              disabled={isAiScanning}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-amber-300 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all disabled:opacity-50"
-            >
-              <Sparkles className={`w-4 h-4 ${isAiScanning ? 'animate-spin text-amber-400' : ''}`} />
-              {isAiScanning ? 'Scanning Live Recalls & Failures...' : 'Re-Run Gemini Diagnostic Scan'}
-            </button>
-          </div>
+          <button
+            onClick={onTriggerAiScan}
+            disabled={isAiScanning}
+            className="self-start sm:self-auto px-3 py-1.5 bg-slate-850 hover:bg-slate-800 border border-slate-750 text-slate-200 text-xs font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+          >
+            <Sparkles className={`w-3.5 h-3.5 text-amber-400 ${isAiScanning ? 'animate-spin' : ''}`} />
+            <span>{isAiScanning ? 'Scanning Recalls...' : 'Refresh Diagnostic Scan'}</span>
+          </button>
         </div>
 
-        {/* Summary text */}
-        <div className="mt-4 text-sm text-slate-300 leading-relaxed bg-slate-950/40 p-4 rounded-lg border border-slate-800/60">
-          <strong className="text-white">Mechanic Executive Summary: </strong>
-          {journey.issuesSummary}
+        {/* Executive Summary */}
+        <div className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-lg border border-slate-800/60">
+          <span className="text-white font-medium mr-1.5">Executive Summary:</span>
+          <span>{journey.issuesSummary}</span>
         </div>
 
-        {/* Sub-Tabs: Issues vs PPI Checklist vs Recalls */}
-        <div className="mt-6 flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+        {/* Segmented Sub-Tab Switcher */}
+        <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-lg border border-slate-800/80 max-w-fit">
           <button
             onClick={() => setChecklistTab('issues')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               checklistTab === 'issues'
-                ? 'bg-amber-500 text-slate-950'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                ? 'bg-slate-850 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Reported Failure Points ({journey.mechanicalIssues.length})
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <span>Failure Points ({journey.mechanicalIssues.length})</span>
           </button>
           <button
             onClick={() => setChecklistTab('checklist')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               checklistTab === 'checklist'
-                ? 'bg-amber-500 text-slate-950'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                ? 'bg-slate-850 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <ClipboardCheck className="w-3.5 h-3.5" />
-            Pre-Purchase Inspection (PPI) Checklist ({passedChecks + concernChecks + failedChecks}/{totalChecks})
+            <ClipboardCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Inspection Checklist ({passedChecks + concernChecks + failedChecks}/{totalChecks})</span>
           </button>
           <button
             onClick={() => setChecklistTab('recalls')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
               checklistTab === 'recalls'
-                ? 'bg-amber-500 text-slate-950'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                ? 'bg-slate-850 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            NHTSA Recalls & Safety Bulletins ({journey.recalls.length})
+            <ShieldAlert className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Safety Recalls ({journey.recalls.length})</span>
           </button>
         </div>
       </div>
 
       {/* VIEW 1: COMMON MECHANICAL FAILURES */}
       {checklistTab === 'issues' && (
-        <div className="space-y-6">
-          {/* Filters Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-slate-400 mr-1 flex items-center gap-1">
-                <Filter className="w-3.5 h-3.5" /> System:
+        <div className="space-y-4">
+          {/* Subtle Filter Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-900/30 p-2.5 rounded-lg border border-slate-800/60">
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-slate-500 mr-1.5 flex items-center gap-1">
+                <Filter className="w-3 h-3" /> System:
               </span>
               {systems.map((sys) => (
                 <button
                   key={sys}
                   onClick={() => setSelectedSystem(sys)}
-                  className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                  className={`px-2 py-0.5 rounded text-xs transition-colors ${
                     selectedSystem === sys
-                      ? 'bg-slate-800 text-amber-400 font-semibold border border-slate-700'
+                      ? 'bg-slate-800 text-white font-medium'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -207,15 +180,15 @@ export const ReliabilityTab: React.FC<ReliabilityTabProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-slate-400 mr-1">Severity:</span>
+            <div className="flex items-center gap-1">
+              <span className="text-slate-500 mr-1.5">Severity:</span>
               {severities.map((sev) => (
                 <button
                   key={sev}
                   onClick={() => setSelectedSeverity(sev)}
                   className={`px-2 py-0.5 capitalize rounded transition-colors ${
                     selectedSeverity === sev
-                      ? 'bg-slate-800 text-white font-medium border border-slate-700'
+                      ? 'bg-slate-800 text-white font-medium'
                       : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
@@ -225,109 +198,93 @@ export const ReliabilityTab: React.FC<ReliabilityTabProps> = ({
             </div>
           </div>
 
-          {/* Issue Cards List */}
-          <div className="space-y-4">
+          {/* Clean Issue Cards */}
+          <div className="space-y-2.5">
             {filteredIssues.map((issue) => {
               const isExpanded = expandedIssueId === issue.id;
 
               return (
                 <div
                   key={issue.id}
-                  className={`bg-slate-900 border rounded-xl transition-all duration-200 overflow-hidden ${
-                    issue.severity === 'critical'
-                      ? 'border-rose-900/40 hover:border-rose-700/60'
-                      : 'border-slate-800 hover:border-slate-700'
-                  }`}
+                  className="bg-slate-900/70 border border-slate-800 rounded-xl transition-colors overflow-hidden"
                 >
-                  {/* Card Header */}
                   <div
                     onClick={() => setExpandedIssueId(isExpanded ? null : issue.id)}
-                    className="p-4 sm:p-5 cursor-pointer flex items-start justify-between gap-4 select-none"
+                    className="p-4 cursor-pointer flex items-start justify-between gap-4 select-none hover:bg-slate-850/40 transition-colors"
                   >
-                    <div className="space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span
-                          className={`px-2 py-0.5 rounded border uppercase text-[10px] font-bold tracking-wider ${getSeverityBadge(
-                            issue.severity
-                          )}`}
-                        >
+                    <div className="space-y-1">
+                      {/* Quiet Unboxed Metadata Line */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                        <span className={`font-semibold capitalize ${getSeverityTextColor(issue.severity)}`}>
                           {issue.severity} Severity
                         </span>
-                        <span className="text-slate-400">{issue.system}</span>
+                        <span className="text-slate-600">·</span>
+                        <span className="text-slate-300">{issue.system}</span>
                         <span className="text-slate-600">·</span>
                         <span className="text-slate-400">
-                          Failure Window: <strong className="text-slate-200 tabular-nums">{issue.failureMileageRange}</strong>
+                          Window: <span className="font-mono text-slate-200">{issue.failureMileageRange}</span>
                         </span>
                         {issue.isTSBOrRecall && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">
-                            Official TSB / Recall Active
-                          </span>
+                          <>
+                            <span className="text-slate-600">·</span>
+                            <span className="text-amber-400 font-medium">TSB Active</span>
+                          </>
                         )}
                       </div>
 
-                      <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-white">
                         {issue.title}
                       </h3>
 
                       <div className="text-xs text-slate-400">
-                        Affected Component: <span className="text-slate-200 font-medium">{issue.component}</span>
+                        Component: <span className="text-slate-300">{issue.component}</span>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
-                        <div className="text-[11px] text-slate-400">Est. Repair Cost</div>
-                        <div className="text-sm font-bold text-emerald-400 tabular-nums">
-                          ${issue.estimatedCostRange.min.toLocaleString()} - ${issue.estimatedCostRange.max.toLocaleString()}
+                        <div className="text-[11px] text-slate-400 font-mono tabular-nums">
+                          ${issue.estimatedCostRange.min.toLocaleString()} – ${issue.estimatedCostRange.max.toLocaleString()}
                         </div>
+                        <span className="text-[10px] text-slate-500">Est. Repair</span>
                       </div>
-                      <button className="text-slate-400 hover:text-white p-1">
-                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                      </button>
+                      <div className="text-slate-500">
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Expanded Technical Details */}
                   {isExpanded && (
-                    <div className="px-4 sm:px-5 pb-5 pt-1 border-t border-slate-800/80 space-y-4 bg-slate-950/40">
-                      {/* Deep description */}
-                      <p className="text-sm text-slate-300 leading-relaxed">{issue.description}</p>
+                    <div className="px-4 pb-4 pt-2 border-t border-slate-800/80 space-y-3 text-xs bg-slate-950/40">
+                      <p className="text-slate-300 leading-relaxed">{issue.description}</p>
 
                       {/* Symptoms */}
                       <div>
-                        <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                          Reported Owner Symptoms
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {issue.symptoms.map((symptom, idx) => (
-                            <div
-                              key={idx}
-                              className="text-xs text-slate-300 bg-slate-900/80 border border-slate-800 p-2.5 rounded-lg flex items-start gap-2"
-                            >
-                              <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                        <span className="text-slate-400 font-medium block mb-1">Owner Symptoms:</span>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-300">
+                          {issue.symptoms.map((symptom, sIdx) => (
+                            <li key={sIdx} className="flex items-start gap-1.5 bg-slate-900/60 p-2 rounded border border-slate-800/60">
+                              <span className="text-amber-400">·</span>
                               <span>{symptom}</span>
-                            </div>
+                            </li>
                           ))}
-                        </div>
+                        </ul>
                       </div>
 
-                      {/* Test Drive Warning Signs - The Buyer's In-Car Guide */}
-                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3.5">
-                        <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-1">
-                          <Gauge className="w-4 h-4" />
-                          <span>What to Test & Listen For During Your Test Drive:</span>
-                        </div>
-                        <p className="text-xs text-slate-200 leading-relaxed pl-6">
-                          {issue.warningSignsTestDrive}
-                        </p>
+                      {/* Test Drive Signs */}
+                      <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                        <span className="text-amber-400 font-medium block mb-0.5">
+                          What to Listen For During Test Drive:
+                        </span>
+                        <p className="text-slate-300 leading-relaxed">{issue.warningSignsTestDrive}</p>
                       </div>
 
-                      {/* Preventative Advice */}
-                      <div className="bg-slate-900 border border-slate-800 rounded-lg p-3.5 text-xs text-slate-300">
-                        <strong className="text-emerald-400 font-semibold block mb-0.5">
-                          Mechanic Preventative Protocol:
-                        </strong>
-                        {issue.preventativeAdvice}
+                      {/* Preventative Protocol */}
+                      <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                        <span className="text-emerald-400 font-medium block mb-0.5">
+                          Preventative Maintenance Protocol:
+                        </span>
+                        <p className="text-slate-300 leading-relaxed">{issue.preventativeAdvice}</p>
                       </div>
                     </div>
                   )}
@@ -336,18 +293,9 @@ export const ReliabilityTab: React.FC<ReliabilityTabProps> = ({
             })}
 
             {filteredIssues.length === 0 && (
-              <div className="text-center py-12 bg-slate-900/40 border border-slate-800 rounded-xl text-slate-400">
-                <HelpCircle className="w-8 h-8 mx-auto text-slate-500 mb-2" />
-                <p>No mechanical issues match the selected filters.</p>
-                <button
-                  onClick={() => {
-                    setSelectedSystem('All');
-                    setSelectedSeverity('All');
-                  }}
-                  className="mt-2 text-xs text-amber-400 hover:underline"
-                >
-                  Clear filters
-                </button>
+              <div className="text-center py-10 bg-slate-900/30 border border-slate-800 rounded-xl text-slate-400 text-xs">
+                <HelpCircle className="w-6 h-6 mx-auto text-slate-500 mb-2" />
+                <p>No issues match the selected system or severity filter.</p>
               </div>
             )}
           </div>
@@ -356,187 +304,120 @@ export const ReliabilityTab: React.FC<ReliabilityTabProps> = ({
 
       {/* VIEW 2: INTERACTIVE PRE-PURCHASE INSPECTION (PPI) CHECKLIST */}
       {checklistTab === 'checklist' && (
-        <div className="space-y-6">
-          {/* PPI Progress Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <ClipboardCheck className="w-5 h-5 text-amber-400" />
-                  Vehicle-Specific Pre-Purchase Inspection (PPI)
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Use this interactive checklist when you inspect the car at the dealer lot or private seller.
-                </p>
-              </div>
-
-              {/* Status tally */}
-              <div className="flex items-center gap-3 text-xs">
-                <span className="flex items-center gap-1 text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4" /> {passedChecks} Pass
-                </span>
-                <span className="flex items-center gap-1 text-amber-400">
-                  <AlertCircle className="w-4 h-4" /> {concernChecks} Concern
-                </span>
-                <span className="flex items-center gap-1 text-rose-400">
-                  <XCircle className="w-4 h-4" /> {failedChecks} Fail
-                </span>
-                <span className="text-slate-500">
-                  ({uninspectedChecks} Remaining)
-                </span>
-              </div>
+        <div className="space-y-4">
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div>
+              <span className="font-semibold text-white block">Pre-Purchase Lot Checklist</span>
+              <span className="text-slate-400">Review items during hands-on mechanical inspection.</span>
             </div>
 
-            {/* Assessment Recommendation */}
-            <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
-              <div>
-                <span className="text-slate-400">Inspection Verdict: </span>
-                {failedChecks > 0 ? (
-                  <strong className="text-rose-400">
-                    High Risk Alert — Walk away or demand severe price concession
-                  </strong>
-                ) : concernChecks > 0 ? (
-                  <strong className="text-amber-400">
-                    Moderate Risk — Request dealer repair or PPI credit
-                  </strong>
-                ) : passedChecks === totalChecks ? (
-                  <strong className="text-emerald-400">
-                    Clean Bill of Health — Excellent candidate for purchase
-                  </strong>
-                ) : (
-                  <span className="text-slate-400">Complete all inspection points to generate final score</span>
-                )}
-              </div>
+            <div className="flex items-center gap-3">
+              <span className="text-emerald-400 font-mono">{passedChecks} Pass</span>
+              <span className="text-amber-400 font-mono">{concernChecks} Concern</span>
+              <span className="text-rose-400 font-mono">{failedChecks} Fail</span>
+              <span className="text-slate-500 font-mono">({uninspectedChecks} pending)</span>
             </div>
           </div>
 
-          {/* Checklist Items */}
-          <div className="space-y-3">
-            {journey.inspectionChecklist.map((item) => {
-              return (
-                <div
-                  key={item.id}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 hover:border-slate-700 transition-colors"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span className="text-amber-400 font-semibold">{item.category}</span>
-                        <span className="text-slate-600">·</span>
-                        <span
-                          className={`capitalize ${
-                            item.riskSeverity === 'critical'
-                              ? 'text-rose-400'
-                              : item.riskSeverity === 'moderate'
-                              ? 'text-amber-400'
-                              : 'text-slate-400'
-                          }`}
-                        >
-                          {item.riskSeverity} Priority Check
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-bold text-white">{item.title}</h4>
-                      <p className="text-xs text-slate-300 leading-relaxed">{item.description}</p>
+          <div className="space-y-2">
+            {journey.inspectionChecklist.map((item) => (
+              <div
+                key={item.id}
+                className="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 space-y-2"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                      <span className="text-amber-400 font-medium">{item.category}</span>
+                      <span>·</span>
+                      <span className="capitalize">{item.riskSeverity} Priority</span>
                     </div>
-
-                    {/* Status Toggle Buttons */}
-                    <div className="flex items-center gap-1 shrink-0 self-start sm:self-center">
-                      <button
-                        onClick={() => handleUpdateChecklistItem(item.id, 'pass')}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1 transition-colors ${
-                          item.status === 'pass'
-                            ? 'bg-emerald-500 text-slate-950 font-bold'
-                            : 'bg-slate-800 text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Pass
-                      </button>
-                      <button
-                        onClick={() => handleUpdateChecklistItem(item.id, 'concern')}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1 transition-colors ${
-                          item.status === 'concern'
-                            ? 'bg-amber-500 text-slate-950 font-bold'
-                            : 'bg-slate-800 text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        <AlertCircle className="w-3.5 h-3.5" /> Concern
-                      </button>
-                      <button
-                        onClick={() => handleUpdateChecklistItem(item.id, 'fail')}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1 transition-colors ${
-                          item.status === 'fail'
-                            ? 'bg-rose-500 text-slate-950 font-bold'
-                            : 'bg-slate-800 text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        <XCircle className="w-3.5 h-3.5" /> Fail
-                      </button>
-                    </div>
+                    <div className="text-xs font-semibold text-white">{item.title}</div>
+                    <p className="text-xs text-slate-300 leading-snug">{item.description}</p>
                   </div>
 
-                  {/* Notes input */}
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Add in-person inspection note (e.g. 'slight tear on front bushing, dealer promised to replace')..."
-                      value={item.notes}
-                      onChange={(e) => handleUpdateChecklistItem(item.id, item.status, e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
-                    />
+                  {/* Clean Status Toggles */}
+                  <div className="flex items-center gap-1 shrink-0 self-start sm:self-center">
+                    <button
+                      onClick={() => handleUpdateChecklistItem(item.id, 'pass')}
+                      className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+                        item.status === 'pass'
+                          ? 'bg-emerald-500 text-slate-950 font-semibold'
+                          : 'bg-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      Pass
+                    </button>
+                    <button
+                      onClick={() => handleUpdateChecklistItem(item.id, 'concern')}
+                      className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+                        item.status === 'concern'
+                          ? 'bg-amber-500 text-slate-950 font-semibold'
+                          : 'bg-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      Concern
+                    </button>
+                    <button
+                      onClick={() => handleUpdateChecklistItem(item.id, 'fail')}
+                      className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+                        item.status === 'fail'
+                          ? 'bg-rose-500 text-white font-semibold'
+                          : 'bg-slate-800 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      Fail
+                    </button>
                   </div>
                 </div>
-              );
-            })}
+
+                <input
+                  type="text"
+                  placeholder="Inspector notes..."
+                  value={item.notes || ''}
+                  onChange={(e) => handleUpdateChecklistItem(item.id, item.status, e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* VIEW 3: OFFICIAL NHTSA RECALLS */}
+      {/* VIEW 3: OFFICIAL RECALLS */}
       {checklistTab === 'recalls' && (
-        <div className="space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              NHTSA Safety Recalls & Mandatory Campaigns
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Safety recalls must be repaired by authorized franchise dealerships free of charge regardless of vehicle age or warranty status.
-            </p>
-          </div>
-
+        <div className="space-y-3">
           {journey.recalls.map((recall, idx) => (
-            <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div key={idx} className="bg-slate-900/70 border border-slate-800 rounded-xl p-4 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    Campaign #{recall.campaignNumber}
+                  <span className="font-mono text-amber-400 font-semibold">
+                    #{recall.campaignNumber}
                   </span>
-                  <span className="text-xs font-medium text-slate-300">{recall.component}</span>
+                  <span className="text-slate-600">·</span>
+                  <span className="text-white font-medium">{recall.component}</span>
                 </div>
-                <span className="text-xs text-slate-400">{recall.date}</span>
+                <span className="text-slate-400 font-mono text-[11px]">{recall.date}</span>
               </div>
 
-              <div>
-                <h4 className="text-sm font-semibold text-white">Summary</h4>
-                <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{recall.summary}</p>
+              <p className="text-slate-300 leading-relaxed">{recall.summary}</p>
+
+              <div className="text-rose-300/90 leading-relaxed">
+                <span className="font-medium text-rose-400 mr-1">Hazard:</span>
+                {recall.consequence}
               </div>
 
-              <div>
-                <h4 className="text-sm font-semibold text-rose-400">Safety Hazard / Consequence</h4>
-                <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{recall.consequence}</p>
-              </div>
-
-              <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs text-emerald-400">
-                <strong className="font-semibold block mb-0.5">Dealer Remedy (Free):</strong>
+              <div className="text-slate-300 bg-slate-950/60 p-2.5 rounded border border-slate-800/80">
+                <span className="text-emerald-400 font-medium mr-1">Remedy:</span>
                 {recall.remedy}
               </div>
             </div>
           ))}
 
           {journey.recalls.length === 0 && (
-            <div className="text-center py-12 bg-slate-900/40 border border-slate-800 rounded-xl text-slate-400">
-              <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-500 mb-2" />
-              <p>No open safety recalls found for this vehicle model year.</p>
+            <div className="text-center py-10 bg-slate-900/30 border border-slate-800 rounded-xl text-slate-400 text-xs">
+              <CheckCircle2 className="w-6 h-6 mx-auto text-emerald-400 mb-2" />
+              <p>No active NHTSA safety recalls on record for this vehicle model year.</p>
             </div>
           )}
         </div>

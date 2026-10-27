@@ -1,13 +1,15 @@
 import { CarJourney } from '../types/carJourney';
 import { DEFAULT_JOURNEYS } from '../data/defaultJourneys';
 
-const STORAGE_KEY = 'autojourney_car_journeys_v2';
-const ACTIVE_ID_KEY = 'autojourney_active_journey_id_v2';
-const INITIALIZED_KEY = 'autojourney_initialized_v2';
+const STORAGE_KEY = 'autojourney_car_journeys_v3';
+const ACTIVE_ID_KEY = 'autojourney_active_journey_id_v3';
 
+/**
+ * Load saved car journeys from storage.
+ * Defaults to an empty list so sample cars are NO LONGER loaded by default.
+ */
 export function loadJourneys(): CarJourney[] {
   try {
-    const initialized = localStorage.getItem(INITIALIZED_KEY);
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw !== null) {
       const parsed = JSON.parse(raw);
@@ -15,25 +17,16 @@ export function loadJourneys(): CarJourney[] {
         return parsed;
       }
     }
-    // If the user has initialized before and cleared journeys (or raw is empty), honor []
-    if (initialized === 'true') {
-      return [];
-    }
-
-    // First-time load: populate default journeys and flag initialized
-    localStorage.setItem(INITIALIZED_KEY, 'true');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_JOURNEYS));
-    localStorage.setItem(ACTIVE_ID_KEY, DEFAULT_JOURNEYS[0].id);
-    return DEFAULT_JOURNEYS;
+    // Return empty array by default
+    return [];
   } catch (e) {
     console.error('Failed to load journeys from localStorage:', e);
   }
-  return DEFAULT_JOURNEYS;
+  return [];
 }
 
 export function saveJourneys(journeys: CarJourney[]): void {
   try {
-    localStorage.setItem(INITIALIZED_KEY, 'true');
     localStorage.setItem(STORAGE_KEY, JSON.stringify(journeys));
   } catch (e) {
     console.error('Failed to save journeys to localStorage:', e);
@@ -62,7 +55,6 @@ export function setActiveJourneyId(id: string): void {
 
 export function clearAllSavedJourneys(): void {
   try {
-    localStorage.setItem(INITIALIZED_KEY, 'true');
     localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
     localStorage.removeItem(ACTIVE_ID_KEY);
   } catch (e) {
@@ -70,14 +62,17 @@ export function clearAllSavedJourneys(): void {
   }
 }
 
+/**
+ * Explicit user action to load sample vehicles (optional for demonstration).
+ */
 export function resetToDefaultJourneys(): CarJourney[] {
   try {
-    localStorage.setItem(INITIALIZED_KEY, 'true');
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_JOURNEYS));
-    localStorage.setItem(ACTIVE_ID_KEY, DEFAULT_JOURNEYS[0].id);
+    if (DEFAULT_JOURNEYS.length > 0) {
+      localStorage.setItem(ACTIVE_ID_KEY, DEFAULT_JOURNEYS[0].id);
+    }
   } catch (e) {
     console.error('Failed to reset default journeys:', e);
   }
   return DEFAULT_JOURNEYS;
 }
-

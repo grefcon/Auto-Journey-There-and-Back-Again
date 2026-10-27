@@ -85,14 +85,16 @@ export interface DealerListing {
   trim: string;
   exteriorColor: string;
   daysOnMarket: number;
+  imageUrl?: string;
   carfax: {
     cleanTitle: boolean;
     noAccidents: boolean;
     oneOwner: boolean;
     serviceRecordsCount: number;
+    reportUrl?: string;
   };
   url?: string;
-  sourcePlatform?: 'AutoTempest' | 'Cars.com' | 'Autotrader' | 'CarMax' | 'Carvana' | 'Craigslist' | 'Dealer Direct' | 'TrueCar';
+  sourcePlatform?: 'Auto.dev' | 'AutoTempest' | 'Cars.com' | 'Autotrader' | 'CarMax' | 'Carvana' | 'Craigslist' | 'Dealer Direct' | 'TrueCar';
   isSaved: boolean;
   notes?: string;
   dealerGrade?: DealerGradeInfo;
@@ -282,6 +284,12 @@ export interface TrimOption {
   keyFeatures?: string[];
 }
 
+export interface CarColorOption {
+  name: string;
+  value: string;
+  hex: string;
+}
+
 export interface CarOptionsLookupResult {
   year: number;
   make: string;
@@ -289,6 +297,7 @@ export interface CarOptionsLookupResult {
   engines: EngineOption[];
   drivetrains: DrivetrainOption[];
   trims: TrimOption[];
+  colors?: CarColorOption[];
   reliabilityRecommendation: string;
 }
 
@@ -298,6 +307,7 @@ export interface CarJourney {
   make: string;
   model: string;
   trim: string;
+  preferredColor?: string;
   engine?: string;
   displacement?: string;
   drivetrain?: 'FWD' | 'RWD' | 'AWD' | '4WD / 4x4' | '2WD / 4x2';

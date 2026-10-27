@@ -1,15 +1,10 @@
 import React from 'react';
 import { CarJourney } from '../types/carJourney';
 import {
-  AlertTriangle,
-  ShieldCheck,
-  TrendingDown,
-  DollarSign,
-  MapPin,
-  Sparkles,
   Edit3,
   Trash2,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 
 interface JourneyBannerProps {
@@ -45,179 +40,161 @@ export const JourneyBanner: React.FC<JourneyBannerProps> = ({
     });
   };
 
-  // Color mapping for failure risk
-  const getRiskColor = (risk: CarJourney['mechanicalFailureRisk']) => {
+  const getRiskTextColor = (risk: CarJourney['mechanicalFailureRisk']) => {
     switch (risk) {
       case 'Very Low':
-        return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25';
+        return 'text-emerald-400';
       case 'Moderate':
-        return 'text-amber-400 bg-amber-500/10 border-amber-500/25';
+        return 'text-amber-400';
       case 'Above Average':
-        return 'text-orange-400 bg-orange-500/10 border-orange-500/25';
+        return 'text-orange-400';
       case 'High Alert':
-        return 'text-rose-400 bg-rose-500/10 border-rose-500/25';
+        return 'text-rose-400';
+      default:
+        return 'text-slate-300';
     }
   };
 
   return (
-    <div className="bg-slate-900/95 border-b border-slate-800 py-3 sm:py-3.5 px-4 sm:px-6 lg:px-8 shadow-sm">
-      <div className="max-w-7xl mx-auto space-y-2.5">
-        {/* ROW 1: Car Spec Title, Badges, Stage Selector & Action Buttons */}
+    <div className="bg-slate-900/40 border-b border-slate-800/80 py-4 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Row 1: Vehicle Title, Unboxed Specs, and Action Controls */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Car Identity with Spec Badges */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
-            <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+          <div className="space-y-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-baseline gap-2">
               <span>{journey.year} {journey.make} {journey.model}</span>
+              <span className="text-amber-400 font-semibold text-lg">{journey.trim}</span>
             </h1>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md whitespace-nowrap">
-                {journey.trim}
-              </span>
+            {/* Quiet Unboxed Specifications (Zero Pills) */}
+            <div className="text-xs text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1">
               {(journey.displacement || journey.engine) && (
-                <span className="text-[11px] font-semibold text-slate-300 bg-slate-800/90 border border-slate-700 px-2 py-0.5 rounded-md whitespace-nowrap">
-                  {journey.displacement || journey.engine}
-                </span>
+                <span>{journey.displacement || journey.engine}</span>
               )}
               {journey.drivetrain && (
-                <span className="text-[11px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/25 px-2 py-0.5 rounded-md whitespace-nowrap">
-                  {journey.drivetrain}
-                </span>
+                <>
+                  <span className="text-slate-600">·</span>
+                  <span>{journey.drivetrain}</span>
+                </>
               )}
-              <span className="text-[10px] text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 whitespace-nowrap">
-                {journey.condition} · Zip {journey.userZipCode}
-              </span>
+              {journey.preferredColor && journey.preferredColor !== 'Any Color' && (
+                <>
+                  <span className="text-slate-600">·</span>
+                  <span>{journey.preferredColor}</span>
+                </>
+              )}
+              <span className="text-slate-600">·</span>
+              <span>{journey.condition}</span>
+              <span className="text-slate-600">·</span>
+              <span className="font-mono">{journey.userZipCode}</span>
             </div>
           </div>
 
-          {/* Right Controls: Interactive Stage Selector & Actions */}
+          {/* Controls: Stage Selector, Edit, Delete, AI Diagnostic */}
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* Interactive Stage Selector */}
-            <div className="flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 text-xs shadow-inner">
-              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Stage:</span>
-              <div className="relative inline-flex items-center">
-                <select
-                  value={journey.stage}
-                  onChange={(e) => handleStageChange(e.target.value as any)}
-                  className="bg-transparent text-amber-400 font-bold focus:outline-none cursor-pointer text-xs pr-4 appearance-none"
-                  title="Update journey stage"
-                >
-                  {stages.map((st, sIdx) => (
-                    <option key={st} value={st} className="bg-slate-900 text-slate-200">
-                      {sIdx + 1}. {st}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3 h-3 text-amber-400/80 pointer-events-none absolute right-0" />
-              </div>
+            {/* Stage Selector */}
+            <div className="relative inline-flex items-center">
+              <select
+                value={journey.stage}
+                onChange={(e) => handleStageChange(e.target.value as any)}
+                className="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-200 text-xs font-medium rounded-lg px-2.5 py-1.5 pr-7 appearance-none cursor-pointer transition-colors focus:outline-none focus:border-amber-500/50"
+                title="Update stage"
+              >
+                {stages.map((st, idx) => (
+                  <option key={st} value={st} className="bg-slate-900 text-slate-200">
+                    {idx + 1}. {st}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute right-2" />
             </div>
 
-            {/* Edit Criteria CTA */}
+            {/* Edit Spec */}
             <button
               onClick={onOpenEditModal}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 border border-slate-750 hover:border-slate-600 text-slate-300 hover:text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
-              title="Edit car details, trim, or engine"
+              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors"
             >
               <Edit3 className="w-3.5 h-3.5 text-slate-400" />
-              <span className="hidden sm:inline">Edit</span>
+              <span>Edit</span>
             </button>
 
-            {/* Delete CTA */}
+            {/* Delete */}
             {onDeleteJourney && (
               <button
                 onClick={() => onDeleteJourney(journey.id)}
-                className="p-1.5 bg-slate-950 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-800/60 text-slate-400 hover:text-rose-300 rounded-lg transition-colors"
-                title="Delete this journey"
+                className="p-1.5 bg-slate-900 hover:bg-rose-950/30 border border-slate-800 hover:border-rose-900/60 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
+                title="Delete journey"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
 
-            {/* Run AI Diagnostic Scan */}
+            {/* AI Diagnostics Scan */}
             <button
               onClick={onTriggerAiScan}
               disabled={isAiScanning}
-              className="px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
+              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/40 text-amber-400 text-xs font-medium rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <Sparkles className={`w-3.5 h-3.5 ${isAiScanning ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{isAiScanning ? 'Scanning...' : 'Scan Gemini'}</span>
-              <span className="sm:hidden">{isAiScanning ? 'Scanning...' : 'Scan'}</span>
+              <span>{isAiScanning ? 'Scanning...' : 'Scan Gemini'}</span>
             </button>
           </div>
         </div>
 
-        {/* ROW 2: Streamlined 4-Stat Metric Strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 pt-0.5">
-          {/* Stat 1: Reliability Health */}
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg px-3 py-1.5 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Reliability</span>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-base font-extrabold text-white font-mono tabular-nums leading-none">
-                  {journey.reliabilityScore}
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono">/100</span>
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
-              <span className="text-[10px] text-slate-400 block mt-0.5 truncate font-medium">
+        {/* Row 2: Unified Metric Readout Strip with Hairline Dividers */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-slate-800/60 text-xs">
+          {/* Metric 1: Reliability Score */}
+          <div className="space-y-0.5">
+            <span className="text-[11px] text-slate-400 font-medium">Reliability Score</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-semibold text-white font-mono tabular-nums leading-tight">
+                {journey.reliabilityScore}
+              </span>
+              <span className="text-slate-500 font-mono text-[11px]">/ 100</span>
+              <span className="text-slate-600">·</span>
+              <span className="text-slate-400 text-[11px]">
                 {journey.mechanicalIssues.length} issues
               </span>
             </div>
           </div>
 
-          {/* Stat 2: Mechanical Failure Risk Tier */}
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg px-3 py-1.5 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Risk Level</span>
-              <span className={`inline-block text-[11px] font-bold px-1.5 py-0.2 rounded border mt-0.5 leading-tight ${getRiskColor(journey.mechanicalFailureRisk)}`}>
+          {/* Metric 2: Failure Risk Level */}
+          <div className="space-y-0.5">
+            <span className="text-[11px] text-slate-400 font-medium">Mechanical Risk</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className={`text-base font-semibold ${getRiskTextColor(journey.mechanicalFailureRisk)} leading-tight`}>
                 {journey.mechanicalFailureRisk}
               </span>
-            </div>
-            <div className="text-right shrink-0">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
-              <span className="text-[10px] text-slate-400 block mt-0.5 truncate font-medium">
+              <span className="text-slate-600">·</span>
+              <span className="text-slate-400 text-[11px]">
                 {journey.recalls.length} recalls
               </span>
             </div>
           </div>
 
-          {/* Stat 3: Fair Market Band */}
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg px-3 py-1.5 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Market Value</span>
-              <div className="flex items-baseline gap-1 mt-0.5 font-mono">
-                <span className="text-base font-extrabold text-white tabular-nums leading-none">
-                  ${Math.round(journey.marketFairAverage / 100) / 10}k
-                </span>
-                <span className="text-[10px] text-slate-500 truncate">
-                  (${Math.round(journey.marketFairLow / 1000)}k–${Math.round(journey.marketFairHigh / 1000)}k)
-                </span>
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              <DollarSign className="w-3.5 h-3.5 text-amber-400 ml-auto" />
-              <span className="text-[10px] text-emerald-400 font-semibold block mt-0.5 truncate font-mono">
-                Tgt ${Math.round(journey.targetBudget / 1000)}k
+          {/* Metric 3: Market Fair Value */}
+          <div className="space-y-0.5">
+            <span className="text-[11px] text-slate-400 font-medium">Fair Market Value</span>
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-base font-semibold text-white tabular-nums leading-tight">
+                ${Math.round(journey.marketFairAverage / 100) / 10}k
+              </span>
+              <span className="text-slate-500 text-[11px]">
+                (${Math.round(journey.marketFairLow / 1000)}k–${Math.round(journey.marketFairHigh / 1000)}k)
               </span>
             </div>
           </div>
 
-          {/* Stat 4: Tracked Inventory & Deals */}
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg px-3 py-1.5 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Market Intel</span>
-              <div className="flex items-baseline gap-1 mt-0.5 font-mono">
-                <span className="text-base font-extrabold text-white tabular-nums leading-none">
-                  {listingCountSummary(journey)}
-                </span>
-                <span className="text-[10px] text-slate-400">tracked</span>
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              <TrendingDown className="w-3.5 h-3.5 text-cyan-400 ml-auto" />
-              <span className="text-[10px] text-amber-400 font-semibold block mt-0.5 truncate">
+          {/* Metric 4: Inventory & Community Deals */}
+          <div className="space-y-0.5">
+            <span className="text-[11px] text-slate-400 font-medium">Market Activity</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base font-semibold text-white font-mono tabular-nums leading-tight">
+                {journey.listings.length}
+              </span>
+              <span className="text-slate-400 text-[11px]">tracked listings</span>
+              <span className="text-slate-600">·</span>
+              <span className="text-slate-400 text-[11px]">
                 {journey.communityDeals.length} deals
               </span>
             </div>
@@ -227,7 +204,3 @@ export const JourneyBanner: React.FC<JourneyBannerProps> = ({
     </div>
   );
 };
-
-function listingCountSummary(journey: CarJourney) {
-  return journey.listings.length;
-}

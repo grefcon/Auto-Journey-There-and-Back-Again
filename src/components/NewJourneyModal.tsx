@@ -1,31 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   CarJourney,
   EngineOption,
   DrivetrainOption,
   TrimOption,
   CarOptionsLookupResult,
+  CarColorOption,
 } from '../types/carJourney';
-import { lookupVehicleOptions, POPULAR_VEHICLE_OPTIONS } from '../utils/carCatalog';
 import {
-  Sparkles,
+  lookupVehicleOptions,
+  POPULAR_VEHICLE_OPTIONS,
+  MAJOR_US_MAKES,
+  getModelsForMake,
+  getExteriorColorsForMakeAndModel,
+} from '../utils/carCatalog';
+import {
   X,
   Car,
-  DollarSign,
-  MapPin,
-  Gauge,
   Cpu,
   Compass,
-  CheckCircle2,
-  AlertTriangle,
-  HelpCircle,
-  Loader2,
   Check,
-  ShieldAlert,
-  Layers,
-  Flame,
-  ArrowRight,
-  ShieldCheck,
+  Loader2,
+  Sparkles,
+  ChevronDown,
+  Palette,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface NewJourneyModalProps {
@@ -34,270 +33,371 @@ interface NewJourneyModalProps {
   onCreateJourney: (newJourney: CarJourney, autoScan: boolean) => void;
 }
 
+const AVAILABLE_YEARS = [
+  2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010,
+];
+
 export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
   isOpen,
   onClose,
   onCreateJourney,
 }) => {
-  const [year, setYear] = useState<number>(2021);
+  // Cascading Selection States
+  const [year, setYear] = useState<number>(2025);
   const [make, setMake] = useState<string>('Ford');
-  const [model, setModel] = useState<string>('F-150');
-  const [trim, setTrim] = useState<string>('XLT');
-  const [condition, setCondition] = useState<CarJourney['condition']>('Used');
-  const [targetBudget, setTargetBudget] = useState<number>(36500);
-  const [maxMileage, setMaxMileage] = useState<number>(45000);
+  const [isCustomMake, setIsCustomMake] = useState<boolean>(false);
+  const [customMakeInput, setCustomMakeInput] = useState<string>('');
+
+  const [model, setModel] = useState<string>('Expedition');
+  const [isCustomModel, setIsCustomModel] = useState<boolean>(false);
+  const [customModelInput, setCustomModelInput] = useState<string>('');
+
+  const [trim, setTrim] = useState<string>('Tremor');
+  const [isCustomTrim, setIsCustomTrim] = useState<boolean>(false);
+  const [customTrimInput, setCustomTrimInput] = useState<string>('');
+
+  // Exterior Color State
+  const [selectedColor, setSelectedColor] = useState<string>('Any Color');
+  const [isCustomColor, setIsCustomColor] = useState<boolean>(false);
+  const [customColorInput, setCustomColorInput] = useState<string>('');
+
+  // Purchase Criteria
+  const [condition, setCondition] = useState<CarJourney['condition']>('New');
+  const [targetBudget, setTargetBudget] = useState<number>(81000);
+  const [maxMileage, setMaxMileage] = useState<number>(5000);
   const [userZipCode, setUserZipCode] = useState<string>('90210');
-  const [notes, setNotes] = useState<string>('');
   const [autoScanAi, setAutoScanAi] = useState<boolean>(true);
 
-  // Engine & Drivetrain Lookup State - Initialize immediately with pre-indexed Ford F-150 data
+  // Engine & Drivetrain Lookup State
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false);
   const [optionsResult, setOptionsResult] = useState<CarOptionsLookupResult>(() => {
-    return POPULAR_VEHICLE_OPTIONS['ford-f-150'];
+    return POPULAR_VEHICLE_OPTIONS['ford-expedition-2025'];
   });
-  const [selectedEngineId, setSelectedEngineId] = useState<string>('f150-2-7-eb');
-  const [selectedDrivetrainId, setSelectedDrivetrainId] = useState<string>('f150-4x4-part');
+  const [selectedEngineId, setSelectedEngineId] = useState<string>('expedition-3-5-ho-eb');
+  const [selectedDrivetrainId, setSelectedDrivetrainId] = useState<string>('expedition-4wd-controltrac');
 
   // Quick preset shortcuts
   const presets = [
-    { year: 2021, make: 'Ford', model: 'F-150', trim: 'XLT', budget: 36500, miles: 45000 },
-    { year: 2022, make: 'Chevrolet', model: 'Silverado 1500', trim: 'LT', budget: 42000, miles: 38000 },
-    { year: 2022, make: 'RAM', model: '1500', trim: 'Big Horn', budget: 38500, miles: 40000 },
-    { year: 2022, make: 'Honda', model: 'Civic', trim: 'EX', budget: 23500, miles: 35000 },
-    { year: 2021, make: 'Toyota', model: 'RAV4', trim: 'XLE Hybrid', budget: 27500, miles: 42000 },
-    { year: 2020, make: 'Mazda', model: 'CX-5', trim: 'Grand Touring', budget: 21000, miles: 50000 },
+    { year: 2025, make: 'Ford', model: 'Expedition', trim: 'Tremor', budget: 81000, miles: 5000, cond: 'New' as const },
+    { year: 2025, make: 'Ford', model: 'Expedition', trim: 'Active', budget: 61700, miles: 5000, cond: 'New' as const },
+    { year: 2021, make: 'Toyota', model: 'RAV4', trim: 'XLE Hybrid', budget: 27500, miles: 42000, cond: 'Used' as const },
+    { year: 2022, make: 'Honda', model: 'Civic', trim: 'EX', budget: 23500, miles: 35000, cond: 'Used' as const },
+    { year: 2021, make: 'Ford', model: 'F-150', trim: 'XLT', budget: 36500, miles: 45000, cond: 'Used' as const },
+    { year: 2022, make: 'Chevrolet', model: 'Silverado 1500', trim: 'LT', budget: 42000, miles: 38000, cond: 'Used' as const },
   ];
 
-  // Debounced lookup when year, make, or model changes
+  const availableModels = getModelsForMake(make);
+
+  // Instantaneous lookup when year, make, or model changes
   useEffect(() => {
     if (!isOpen) return;
-    if (!make.trim() || !model.trim()) return;
+    const activeMake = isCustomMake ? customMakeInput.trim() : make;
+    const activeModel = isCustomModel ? customModelInput.trim() : model;
+
+    if (!activeMake || !activeModel) return;
 
     let isCurrent = true;
-    const timer = setTimeout(async () => {
-      setIsLoadingOptions(true);
+    const spinnerTimeout = setTimeout(() => {
+      if (isCurrent) setIsLoadingOptions(true);
+    }, 60);
+
+    const performLookup = async () => {
       try {
-        const result = await lookupVehicleOptions(year, make, model);
+        const result = await lookupVehicleOptions(year, activeMake, activeModel);
+        clearTimeout(spinnerTimeout);
         if (isCurrent && result) {
           setOptionsResult(result);
 
-          // If current engine doesn't belong to new options, select first engine
-          if (result.engines.length > 0) {
-            const hasMatch = result.engines.some((e) => e.id === selectedEngineId);
+          if (!isCustomTrim && result.trims && result.trims.length > 0) {
+            const hasMatch = result.trims.some((t) => t.name.toLowerCase() === trim.toLowerCase());
+            let currentTrimObj: TrimOption;
             if (!hasMatch) {
+              currentTrimObj = result.trims[0];
+              setTrim(currentTrimObj.name);
+            } else {
+              currentTrimObj = result.trims.find((t) => t.name.toLowerCase() === trim.toLowerCase()) || result.trims[0];
+            }
+
+            if (currentTrimObj.engineId && result.engines.some((e) => e.id === currentTrimObj.engineId)) {
+              setSelectedEngineId(currentTrimObj.engineId);
+            } else if (result.engines.length > 0) {
               setSelectedEngineId(result.engines[0].id);
             }
-          }
 
-          // If current drivetrain doesn't belong, select first
-          if (result.drivetrains.length > 0) {
-            const hasMatch = result.drivetrains.some((d) => d.id === selectedDrivetrainId);
-            if (!hasMatch) {
+            if (currentTrimObj.availableDrivetrains && currentTrimObj.availableDrivetrains.length > 0) {
+              const matchedDt = result.drivetrains.find(
+                (dt) => currentTrimObj.availableDrivetrains.includes(dt.id) || currentTrimObj.availableDrivetrains.includes(dt.type)
+              );
+              if (matchedDt) {
+                setSelectedDrivetrainId(matchedDt.id);
+              } else if (result.drivetrains.length > 0) {
+                setSelectedDrivetrainId(result.drivetrains[0].id);
+              }
+            } else if (result.drivetrains.length > 0) {
               setSelectedDrivetrainId(result.drivetrains[0].id);
             }
-          }
 
-          // Populate trims: if trim is blank or invalid, select first available trim
-          if (result.trims.length > 0) {
-            const hasMatch = result.trims.some((t) => t.name.toLowerCase() === trim.toLowerCase());
-            if (!hasMatch) {
-              setTrim(result.trims[0].name);
-              if (result.trims[0].startingMsrp) {
-                setTargetBudget(Math.round(result.trims[0].startingMsrp * 0.85));
-              }
+            if (currentTrimObj.startingMsrp && condition === 'New') {
+              setTargetBudget(currentTrimObj.startingMsrp);
             }
           }
         }
-      } catch (e) {
-        console.error('Failed to lookup vehicle options:', e);
+      } catch (err) {
+        console.error('Error fetching options:', err);
       } finally {
         if (isCurrent) setIsLoadingOptions(false);
       }
-    }, 250);
+    };
+
+    performLookup();
 
     return () => {
       isCurrent = false;
-      clearTimeout(timer);
+      clearTimeout(spinnerTimeout);
     };
-  }, [year, make, model, isOpen]);
+  }, [year, make, model, isCustomMake, customMakeInput, isCustomModel, customModelInput, isOpen]);
 
-  if (!isOpen) return null;
+  const effectiveMake = isCustomMake ? customMakeInput || 'Custom' : make;
+  const effectiveModel = isCustomModel ? customModelInput || 'Custom' : model;
+  const effectiveTrim = isCustomTrim ? customTrimInput || 'Custom Trim' : trim;
+  const effectiveColor = isCustomColor ? customColorInput || 'Custom Color' : selectedColor;
+
+  const availableColors = useMemo(() => {
+    return getExteriorColorsForMakeAndModel(effectiveMake, effectiveModel);
+  }, [effectiveMake, effectiveModel]);
+
+  const selectedColorObj = useMemo(() => {
+    return availableColors.find((c) => c.value === effectiveColor) || availableColors[0];
+  }, [availableColors, effectiveColor]);
+
+  const handleYearChange = (newYear: number) => {
+    setYear(newYear);
+    if (newYear <= 2023) {
+      setCondition('Used');
+      setMaxMileage(45000);
+    } else {
+      setCondition('New');
+      setMaxMileage(5000);
+    }
+  };
+
+  const handleMakeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (val === '__custom__') {
+      setIsCustomMake(true);
+      setCustomMakeInput('');
+    } else {
+      setIsCustomMake(false);
+      setMake(val);
+      const models = getModelsForMake(val);
+      if (models.length > 0) {
+        setModel(models[0]);
+        setIsCustomModel(false);
+      }
+    }
+  };
+
+  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (val === '__custom__') {
+      setIsCustomModel(true);
+      setCustomModelInput('');
+    } else {
+      setIsCustomModel(false);
+      setModel(val);
+    }
+  };
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (val === '__custom__') {
+      setIsCustomColor(true);
+      setCustomColorInput('');
+    } else {
+      setIsCustomColor(false);
+      setSelectedColor(val);
+    }
+  };
+
+  const handleSelectTrimCard = (t: TrimOption) => {
+    setIsCustomTrim(false);
+    setTrim(t.name);
+
+    if (t.engineId && optionsResult?.engines.some((e) => e.id === t.engineId)) {
+      setSelectedEngineId(t.engineId);
+    }
+    if (t.availableDrivetrains && t.availableDrivetrains.length > 0 && optionsResult?.drivetrains) {
+      const matchedDt = optionsResult.drivetrains.find(
+        (dt) => t.availableDrivetrains.includes(dt.id) || t.availableDrivetrains.includes(dt.type)
+      );
+      if (matchedDt) setSelectedDrivetrainId(matchedDt.id);
+    }
+    if (t.startingMsrp && condition === 'New') {
+      setTargetBudget(t.startingMsrp);
+    }
+  };
 
   const handleApplyPreset = (p: typeof presets[0]) => {
+    setIsCustomMake(false);
+    setIsCustomModel(false);
+    setIsCustomTrim(false);
     setYear(p.year);
     setMake(p.make);
     setModel(p.model);
     setTrim(p.trim);
     setTargetBudget(p.budget);
     setMaxMileage(p.miles);
-  };
-
-  const handleSelectTrim = (t: TrimOption) => {
-    setTrim(t.name);
-    if (t.startingMsrp) {
-      setTargetBudget(Math.round(t.startingMsrp * 0.85));
-    }
-    // Switch to trim's default engine if available
-    if (t.engineId && optionsResult?.engines.some((e) => e.id === t.engineId)) {
-      setSelectedEngineId(t.engineId);
-    }
-    // Switch to trim's first compatible drivetrain
-    if (t.availableDrivetrains && t.availableDrivetrains.length > 0) {
-      const matchDt = optionsResult?.drivetrains.find(
-        (dt) => t.availableDrivetrains.includes(dt.id) || t.availableDrivetrains.includes(dt.type)
-      );
-      if (matchDt) {
-        setSelectedDrivetrainId(matchDt.id);
-      }
-    }
+    setCondition(p.cond);
   };
 
   const selectedEngine = optionsResult?.engines.find((e) => e.id === selectedEngineId) || optionsResult?.engines[0];
-  const selectedDrivetrain = optionsResult?.drivetrains.find((d) => d.id === selectedDrivetrainId) || optionsResult?.drivetrains[0];
+  const selectedDrivetrain = optionsResult?.drivetrains.find((dt) => dt.id === selectedDrivetrainId) || optionsResult?.drivetrains[0];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const fairAvg = targetBudget;
-    const fairLow = Math.round(targetBudget * 0.93);
-    const fairHigh = Math.round(targetBudget * 1.07);
+    const fullTrimTitle = effectiveTrim;
+    const fairAvg = targetBudget > 0 ? targetBudget : 45000;
+    const fairLow = Math.round(fairAvg * 0.93);
+    const fairHigh = Math.round(fairAvg * 1.07);
 
-    const engineDisplay = selectedEngine?.displacement || '';
-    const drivetrainDisplay = selectedDrivetrain?.type || '';
-    const fullTrimTitle = `${trim}${engineDisplay ? ` (${engineDisplay})` : ''}${
-      drivetrainDisplay ? ` ${drivetrainDisplay}` : ''
-    }`;
-
-    const fuelTypeMapping: 'gas' | 'hybrid' | 'electric' =
-      selectedEngine?.fuelType === 'Electric'
-        ? 'electric'
-        : selectedEngine?.fuelType === 'Hybrid' || selectedEngine?.fuelType === 'Plug-in Hybrid'
-        ? 'hybrid'
-        : 'gas';
+    const fuelTypeMapping: any =
+      selectedEngine?.fuelType === 'Hybrid'
+        ? 'Hybrid'
+        : selectedEngine?.fuelType === 'Electric'
+        ? 'Electric'
+        : selectedEngine?.fuelType === 'Diesel'
+        ? 'Diesel'
+        : 'Gasoline';
 
     const efficiencyVal = selectedEngine?.efficiency?.combined || 22;
-    const fuelCostUnit = fuelTypeMapping === 'electric' ? 0.28 : 3.85;
+    const fuelCostUnit = fuelTypeMapping === 'Electric' ? 0.16 : 3.65;
+
+    const initialIssues: any[] = [
+      {
+        id: `issue-gen-1`,
+        title: 'Transmission Shift Solenoid & Valve Body Sticking',
+        system: 'Transmission',
+        severity: 'moderate' as const,
+        description: 'Hard 2-3 and 4-5 upshifts reported during cold engine operating cycles.',
+        component: 'Electronic Shift Solenoids / Valve Body',
+        failureMileageRange: '50k - 85k miles',
+        symptoms: ['Harsh engagement from reverse to drive', 'Hesitation when accelerating onto highway'],
+        estimatedCostRange: { min: 650, max: 1400 },
+        isTSBOrRecall: false,
+        warningSignsTestDrive: 'Inspect shift smoothness at half-throttle cold start.',
+        preventativeAdvice: 'Fluid drain & fill every 35,000 miles.',
+      },
+    ];
+
+    const initialChecklist: any[] = [
+      {
+        id: `ppi-1`,
+        category: 'Under Hood',
+        title: 'Examine Turbocharger Oil Feed Lines & Couplers',
+        description: 'Inspect turbo inlet joints for weepage or residue buildup.',
+        riskSeverity: 'high',
+        status: 'uninspected' as const,
+        notes: '',
+      },
+      {
+        id: `ppi-2`,
+        category: 'Undercarriage & Suspension',
+        title: 'Check Transmission Fluid Clarity & Heat Odor',
+        description: 'Verify transmission shifts cleanly across all gear steps.',
+        riskSeverity: 'moderate',
+        status: 'uninspected' as const,
+        notes: '',
+      },
+      {
+        id: `ppi-3`,
+        category: 'Undercarriage & Suspension',
+        title: 'Inspect Control Arm Bushings & Ball Joints',
+        description: 'Check for front suspension play and torn rubber boots.',
+        riskSeverity: 'moderate',
+        status: 'uninspected' as const,
+        notes: '',
+      },
+    ];
 
     const newJourney: CarJourney = {
       id: `journey-${Date.now()}`,
+      createdDate: new Date().toISOString().split('T')[0],
       year,
-      make,
-      model,
+      make: effectiveMake,
+      model: effectiveModel,
       trim: fullTrimTitle,
-      engine: selectedEngine?.name || 'Standard Engine',
-      displacement: selectedEngine?.displacement || '',
-      drivetrain: selectedDrivetrain?.type || '4WD / 4x4',
       condition,
       targetBudget,
       maxMileage,
       userZipCode,
+      notes: '',
       stage: 'Researching',
-      createdDate: new Date().toISOString().split('T')[0],
-      notes: notes || `Configured ${year} ${make} ${model} ${trim} with ${selectedEngine?.name || ''} and ${selectedDrivetrain?.name || ''}.`,
-      
+      preferredColor: effectiveColor,
+
+      engine: selectedEngine?.name || `${year} Factory Spec`,
+      displacement: selectedEngine?.displacement || '',
+      horsepower: selectedEngine?.horsepower,
+      torque: selectedEngine?.torqueLbFt,
+      fuelType: fuelTypeMapping,
+      fuelEconomyMpg: efficiencyVal,
+      drivetrain: selectedDrivetrain?.type || 'AWD',
+
       marketFairLow: fairLow,
       marketFairAverage: fairAvg,
       marketFairHigh: fairHigh,
-      originalMsrp: Math.round(targetBudget * 1.18),
-      
-      reliabilityScore: 82,
+      originalMsrp: optionsResult?.trims.find((t) => t.name === fullTrimTitle)?.startingMsrp || fairAvg,
+      reliabilityScore: year >= 2024 ? 85 : 79,
       mechanicalFailureRisk: 'Moderate',
-      issuesSummary: `Analyzing mechanical failure points specifically for the ${year} ${make} ${model} equipped with the ${selectedEngine?.name || 'engine'} and ${selectedDrivetrain?.name || 'drivetrain'}.`,
-      
-      mechanicalIssues: [
-        {
-          id: `issue-${Date.now()}-1`,
-          system: 'Powertrain',
-          component: `${selectedEngine?.displacement || 'Engine'} Fuel & Timing Assembly`,
-          title: `${selectedEngine?.name || 'Powertrain'} Mechanical Architecture`,
-          description: selectedEngine?.keyReliabilityNotes || 'Monitor fuel delivery, oil pressure, and scheduled spark plug and fluid intervals.',
-          severity: 'moderate',
-          failureMileageRange: '45,000 - 80,000 mi',
-          estimatedCostRange: { min: 450, max: 1400 },
-          symptoms: ['Slight hesitation during brisk throttle input', 'Cold start valve train sound'],
-          warningSignsTestDrive: 'Start vehicle completely cold and listen for any timing chain or cam phaser rattle during the initial 3 seconds.',
-          preventativeAdvice: 'Adhere strictly to 5,000-mile full synthetic oil change intervals to prevent premature timing wear.',
-          isTSBOrRecall: false,
-          frequency: 'Common',
-        },
-        {
-          id: `issue-${Date.now()}-2`,
-          system: selectedDrivetrain?.type === 'AWD' || selectedDrivetrain?.type === '4WD / 4x4' ? 'Suspension' : 'Transmission',
-          component: `${selectedDrivetrain?.type || 'Drivetrain'} Transfer Unit & Differentials`,
-          title: `${selectedDrivetrain?.name || 'Drivetrain'} Traction Component Check`,
-          description: selectedDrivetrain?.keyReliabilityNotes || 'Inspect fluid seals and verify smooth engagement under acceleration.',
-          severity: 'moderate',
-          failureMileageRange: '40,000 - 75,000 mi',
-          estimatedCostRange: { min: 400, max: 1600 },
-          symptoms: ['Driveline vibration at highway speeds', 'Binding sensation when executing tight low-speed turns'],
-          warningSignsTestDrive: 'Execute full-lock figure-eight turns in a parking lot to test for binding, chatter, or differential clunking.',
-          preventativeAdvice: 'Service transfer case and differential gear lubricants every 40k miles.',
-          isTSBOrRecall: false,
-          frequency: 'Uncommon',
-        },
-      ],
-
+      issuesSummary:
+        optionsResult?.reliabilityRecommendation ||
+        `Comprehensive diagnostics loaded for ${year} ${effectiveMake} ${effectiveModel} with ${selectedEngine?.name || 'standard powertrain'}.`,
+      mechanicalIssues: initialIssues,
       recalls: [],
-
-      inspectionChecklist: [
-        {
-          id: `chk-${Date.now()}-1`,
-          category: 'Under Hood',
-          title: `${selectedEngine?.displacement || 'Engine'} Fluid Level & Leak Inspection`,
-          description: 'Inspect valve covers, oil pan gasket, turbo coolant lines, and serpentine belt condition.',
-          riskSeverity: 'critical',
-          status: 'uninspected',
-          notes: '',
-        },
-        {
-          id: `chk-${Date.now()}-2`,
-          category: 'Undercarriage & Suspension',
-          title: `${selectedDrivetrain?.type || 'Drivetrain'} Axle Boots & Transfer Case Check`,
-          description: 'Inspect CV half-shaft boots, front/rear differential seals, and transfer case for fluid weepage.',
-          riskSeverity: 'critical',
-          status: 'uninspected',
-          notes: '',
-        },
-      ],
+      inspectionChecklist: initialChecklist,
 
       listings: [
         {
           id: `list-${Date.now()}-1`,
-          dealerName: 'Metro Automotive Group',
+          title: `${year} ${effectiveMake} ${effectiveModel} ${fullTrimTitle}`,
+          dealerName: 'Certified Premier Dealership',
           dealerType: 'Franchise Dealer',
-          title: `${year} ${make} ${model} ${fullTrimTitle}`,
           price: Math.round(fairAvg * 0.98),
           marketFairPrice: fairAvg,
-          mileage: Math.round(maxMileage * 0.8),
-          distanceMiles: 8.5,
-          location: `Area (${userZipCode})`,
-          vin: '1FTXXXXXXXXXXXXXX',
+          mileage: condition === 'New' ? 15 : maxMileage > 10000 ? Math.round(maxMileage * 0.8) : 24000,
+          distanceMiles: 8,
+          location: `Metro Dealer (${userZipCode})`,
+          vin: `1FA6P8CF${Math.floor(100000000 + Math.random() * 900000000)}`,
           trim: fullTrimTitle,
-          exteriorColor: 'Carbonized Gray',
-          daysOnMarket: 14,
+          exteriorColor: effectiveColor !== 'Any Color' ? effectiveColor : 'Oxford White',
+          daysOnMarket: 9,
+          imageUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
           sourcePlatform: 'AutoTempest',
-          url: `https://www.autotempest.com/results?make=${encodeURIComponent(make.toLowerCase())}&model=${encodeURIComponent(model.toLowerCase())}&zip=${userZipCode}`,
-          carfax: { cleanTitle: true, noAccidents: true, oneOwner: true, serviceRecordsCount: 6 },
-          isSaved: false,
-          notes: `Equipped with factory ${selectedEngine?.name || ''} and ${selectedDrivetrain?.name || ''}. Clean 1-owner Carfax.`,
+          isSaved: true,
+          carfax: {
+            cleanTitle: true,
+            noAccidents: true,
+            oneOwner: true,
+            serviceRecordsCount: 6,
+          },
+          notes: 'Clean CarFax 1-owner with complete service records.',
           dealerGrade: {
             grade: 'A',
-            overallRating: 4.5,
-            reviewsCount: 320,
+            overallRating: 4.6,
+            reviewsCount: 310,
             fccCalloutStatus: 'Clean - No Regulatory Flags',
-            fccCalloutDetails: [
-              'Zero FCC robocall or unsolicited telemarketing complaints on record.',
-              'Compliant with FTC CARS upfront pricing guidelines.',
-            ],
+            fccCalloutDetails: ['Zero regulatory violations on record.', 'Transparent pricing.'],
             bbbRating: 'A+',
-            customerSentiment: 'Fast response and transparent quotes without mandatory dealer add-ons.',
-            transparencyScore: 90,
+            customerSentiment: 'Clean facility, fast negotiation.',
+            transparencyScore: 92,
             keyWatchouts: ['Confirm standard doc fee in writing.'],
-            negotiationLeverage: 'Aged 14 days; offer 3% below asking.',
+            negotiationLeverage: 'Aged 9 days; competitive market position.',
           },
           autoTrack: {
             enabled: true,
-            targetUrl: `https://www.autotempest.com/results?make=${encodeURIComponent(make.toLowerCase())}&model=${encodeURIComponent(model.toLowerCase())}&zip=${userZipCode}`,
+            targetUrl: `https://www.autotempest.com/results?make=${encodeURIComponent(
+              effectiveMake.toLowerCase()
+            )}&model=${encodeURIComponent(effectiveModel.toLowerCase())}&zip=${userZipCode}`,
             frequency: 'Daily',
             lastCheckedDate: 'Today at 9:00 AM',
             lastConfirmedPrice: Math.round(fairAvg * 0.98),
@@ -316,19 +416,19 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
           id: `deal-${Date.now()}-1`,
           source: 'Reddit r/whatcarshouldIbuy',
           dateReported: new Date().toISOString().split('T')[0],
-          userHandle: 'u/TruckBuyer2026',
+          userHandle: 'u/AutoEnthusiast',
           trim: fullTrimTitle,
           msrp: fairHigh,
           negotiatedPrice: Math.round(fairAvg * 0.96),
           outTheDoorPrice: Math.round(fairAvg * 1.05),
           discountAmount: Math.round(fairHigh - fairAvg * 0.96),
-          discountPercentage: 5.4,
+          discountPercentage: 5.2,
           location: 'Regional Dealer Network',
           feesBreakdown: { docFee: 85, addOns: 0, taxes: Math.round(fairAvg * 0.08) },
           incentives: ['No mandatory dealer accessories'],
-          notes: `Negotiated by cross-shopping competing dealerships for this exact ${selectedEngine?.displacement || ''} ${selectedDrivetrain?.type || ''} spec. Got $${Math.round(fairHigh - fairAvg * 0.96).toLocaleString()} off asking.`,
+          notes: `Negotiated by cross-shopping competing dealerships for this exact ${selectedEngine?.displacement || ''} ${selectedDrivetrain?.type || ''} spec.`,
           dealRating: 'Good',
-          upvotes: 24,
+          upvotes: 34,
         },
       ],
 
@@ -341,10 +441,10 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
         fuelType: fuelTypeMapping,
         fuelCostPerUnit: fuelCostUnit,
         efficiency: efficiencyVal,
-        insurancePerMonth: 155,
-        annualMaintenanceRoutine: 620,
+        insurancePerMonth: 165,
+        annualMaintenanceRoutine: 680,
         salesTaxRate: 8.5,
-        registrationAnnual: 310,
+        registrationAnnual: 340,
       },
     };
 
@@ -352,47 +452,53 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
     onClose();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-6 my-8 max-h-[92vh] overflow-y-auto">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
-              <Car className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Configure New Car Journey</h3>
-              <p className="text-xs text-slate-400">
-                Detailed engine family breakout (2.7L vs 3.5L vs 5.0L V8), 4x4 / AWD drivetrains, and factory trims.
-              </p>
-            </div>
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-6 my-6 max-h-[92vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-white tracking-tight">Configure Vehicle Journey</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Select your vehicle spec, trim package, and powertrain to unlock mechanical failure intel.
+            </p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Quick Presets */}
-        <div>
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
-            Quick Select Common Vehicles:
+        {/* Quick Select Shortcuts */}
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+            Quick Select
           </span>
           <div className="flex flex-wrap gap-1.5">
             {presets.map((p, idx) => {
-              const isMatch = make.toLowerCase() === p.make.toLowerCase() && model.toLowerCase() === p.model.toLowerCase();
+              const isMatch =
+                year === p.year &&
+                make.toLowerCase() === p.make.toLowerCase() &&
+                model.toLowerCase() === p.model.toLowerCase() &&
+                trim.toLowerCase() === p.trim.toLowerCase();
               return (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleApplyPreset(p)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                  className={`text-xs px-2.5 py-1 rounded-md border transition-all ${
                     isMatch
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-semibold shadow-sm ring-1 ring-amber-500/30'
-                      : 'bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-800'
+                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 font-medium'
+                      : 'bg-slate-950 hover:bg-slate-850 text-slate-300 border-slate-800'
                   }`}
                 >
-                  {p.year} {p.make} {p.model}
+                  <span>{p.year} {p.make} {p.model}</span>
+                  <span className="text-slate-500 mx-1">·</span>
+                  <span className="text-amber-400/90">{p.trim}</span>
                 </button>
               );
             })}
@@ -400,389 +506,400 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 text-xs">
-          {/* STEP 1: Basic Vehicle Identity */}
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
+          {/* Section 1: Vehicle Spec Selection */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-                Step 1: Vehicle Year, Make & Model
+              <span className="text-xs font-semibold text-white uppercase tracking-wider">
+                1. Vehicle Specification
               </span>
-              <span className="text-[11px] text-slate-400">
-                Type any car to dynamically retrieve options
-              </span>
+              {isLoadingOptions && (
+                <span className="flex items-center gap-1.5 text-xs text-amber-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Looking up options...
+                </span>
+              )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Year */}
               <div>
-                <label className="text-slate-300 block mb-1 font-medium">Model Year</label>
-                <input
-                  type="number"
-                  min={2005}
-                  max={2026}
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono"
-                  required
-                />
+                <label className="text-slate-400 block mb-1 text-[11px] font-medium">Year</label>
+                <div className="relative">
+                  <select
+                    value={year}
+                    onChange={(e) => handleYearChange(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-amber-500 rounded-lg p-2.5 text-white font-mono text-xs appearance-none pr-8 cursor-pointer transition-colors focus:outline-none"
+                  >
+                    {AVAILABLE_YEARS.map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+                </div>
               </div>
+
+              {/* Make */}
               <div>
-                <label className="text-slate-300 block mb-1 font-medium">Make</label>
-                <input
-                  type="text"
-                  value={make}
-                  onChange={(e) => setMake(e.target.value)}
-                  placeholder="e.g. Ford, Toyota, Chevrolet, Honda"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
-                  required
-                />
+                <label className="text-slate-400 block mb-1 text-[11px] font-medium">Make</label>
+                {isCustomMake ? (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={customMakeInput}
+                      onChange={(e) => setCustomMakeInput(e.target.value)}
+                      placeholder="Make..."
+                      className="w-full bg-slate-950 border border-amber-500 rounded-lg p-2 text-white text-xs"
+                      required
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomMake(false)}
+                      className="px-2 py-1 bg-slate-800 text-slate-300 rounded text-[11px]"
+                    >
+                      List
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={make}
+                      onChange={handleMakeChange}
+                      className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-amber-500 rounded-lg p-2.5 text-white text-xs appearance-none pr-8 cursor-pointer transition-colors focus:outline-none"
+                    >
+                      <optgroup label="Popular Major Makes">
+                        {MAJOR_US_MAKES.slice(0, 13).map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Luxury & Premium">
+                        {MAJOR_US_MAKES.slice(13, 25).map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="EV & Heritage Automakers">
+                        {MAJOR_US_MAKES.slice(25).map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <option value="__custom__">+ Custom Make...</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+                  </div>
+                )}
               </div>
+
+              {/* Model */}
               <div>
-                <label className="text-slate-300 block mb-1 font-medium">Model</label>
-                <input
-                  type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder="e.g. F-150, Silverado, Civic, RAV4"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
-                  required
-                />
+                <label className="text-slate-400 block mb-1 text-[11px] font-medium">Model</label>
+                {isCustomModel ? (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={customModelInput}
+                      onChange={(e) => setCustomModelInput(e.target.value)}
+                      placeholder="Model..."
+                      className="w-full bg-slate-950 border border-amber-500 rounded-lg p-2 text-white text-xs"
+                      required
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomModel(false)}
+                      className="px-2 py-1 bg-slate-800 text-slate-300 rounded text-[11px]"
+                    >
+                      List
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={model}
+                      onChange={handleModelChange}
+                      className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-amber-500 rounded-lg p-2.5 text-white text-xs appearance-none pr-8 cursor-pointer transition-colors focus:outline-none"
+                    >
+                      {availableModels.map((mdl) => (
+                        <option key={mdl} value={mdl}>
+                          {mdl}
+                        </option>
+                      ))}
+                      <option value="__custom__">+ Custom Model...</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+                  </div>
+                )}
+              </div>
+
+              {/* Exterior Color */}
+              <div>
+                <label className="text-slate-400 block mb-1 text-[11px] font-medium flex items-center justify-between">
+                  <span>Color</span>
+                  {selectedColorObj && selectedColorObj.value !== 'Any Color' && (
+                    <span
+                      className="w-2.5 h-2.5 rounded-full inline-block border border-slate-700"
+                      style={{ backgroundColor: selectedColorObj.hex }}
+                    />
+                  )}
+                </label>
+                {isCustomColor ? (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={customColorInput}
+                      onChange={(e) => setCustomColorInput(e.target.value)}
+                      placeholder="Color name..."
+                      className="w-full bg-slate-950 border border-amber-500 rounded-lg p-2 text-white text-xs"
+                      required
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomColor(false)}
+                      className="px-2 py-1 bg-slate-800 text-slate-300 rounded text-[11px]"
+                    >
+                      List
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={selectedColor}
+                      onChange={handleColorChange}
+                      className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-amber-500 rounded-lg p-2.5 text-white text-xs appearance-none pr-8 cursor-pointer transition-colors focus:outline-none"
+                    >
+                      {availableColors.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.name}
+                        </option>
+                      ))}
+                      <option value="__custom__">+ Custom Color...</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* STEP 2: FACTORY TRIMS POPULATION */}
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-              <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Step 2: Available Factory Trims for {year} {make} {model}
-                </span>
-                {isLoadingOptions && (
-                  <span className="flex items-center gap-1 text-[11px] text-amber-400 font-normal">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Looking up trims...
-                  </span>
-                )}
-              </div>
-              <span className="text-[11px] text-slate-400">
-                Click a trim to auto-populate equipment & price
+          {/* Section 2: Trim Package Selection */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white uppercase tracking-wider">
+                2. Factory Trim Package
               </span>
+              <button
+                type="button"
+                onClick={() => setIsCustomTrim(!isCustomTrim)}
+                className="text-[11px] text-amber-400 hover:text-amber-300 font-medium transition-colors"
+              >
+                {isCustomTrim ? 'Back to trims' : '+ Custom trim'}
+              </button>
             </div>
 
-            {/* Trims Grid */}
-            {optionsResult?.trims && optionsResult.trims.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {isLoadingOptions ? (
+              <div className="p-8 rounded-xl border border-slate-800 bg-slate-950/40 flex flex-col items-center justify-center gap-2 text-center">
+                <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                <span className="text-xs text-slate-300">
+                  Retrieving factory trims for {year} {effectiveMake} {effectiveModel}...
+                </span>
+              </div>
+            ) : isCustomTrim ? (
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                <label className="text-slate-300 block font-medium text-xs">Custom Trim Name</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customTrimInput}
+                    onChange={(e) => setCustomTrimInput(e.target.value)}
+                    placeholder="e.g. Special Edition, Nightshade..."
+                    className="flex-1 bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg p-2 text-white text-xs"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomTrim(false)}
+                    className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : optionsResult?.trims && optionsResult.trims.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
                 {optionsResult.trims.map((t, idx) => {
-                  const isSelected = trim.toLowerCase() === t.name.toLowerCase();
+                  const isSelected = !isCustomTrim && trim.toLowerCase() === t.name.toLowerCase();
                   return (
                     <div
                       key={idx}
-                      onClick={() => handleSelectTrim(t)}
-                      className={`p-2.5 rounded-xl border cursor-pointer transition-all duration-150 flex flex-col justify-between ${
+                      onClick={() => handleSelectTrimCard(t)}
+                      className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
                         isSelected
-                          ? 'bg-amber-500/20 border-amber-500 text-white font-semibold shadow-sm ring-1 ring-amber-500/30'
-                          : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
+                          ? 'bg-slate-800/60 border-amber-500/80 text-white shadow-xs ring-1 ring-amber-500/30'
+                          : 'bg-slate-950/80 border-slate-800/80 text-slate-300 hover:border-slate-700'
                       }`}
                     >
-                      <div>
+                      <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold">{t.name}</span>
+                          <span className="text-xs font-semibold">{t.name}</span>
                           {isSelected && <Check className="w-3.5 h-3.5 text-amber-400" />}
                         </div>
                         {t.description && (
-                          <p className="text-[10px] text-slate-400 line-clamp-2 mt-1 leading-tight font-normal">
+                          <p className="text-[11px] text-slate-400 line-clamp-2 leading-snug">
                             {t.description}
                           </p>
                         )}
+                        {t.keyFeatures && t.keyFeatures.length > 0 && (
+                          <ul className="text-[10px] text-slate-400 space-y-0.5 pt-1">
+                            {t.keyFeatures.slice(0, 2).map((feat, fIdx) => (
+                              <li key={fIdx} className="line-clamp-1">
+                                · {feat}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                       {t.startingMsrp && (
-                        <div className="text-[10px] text-amber-400/90 font-mono mt-2 pt-1 border-t border-slate-800/60">
-                          MSRP ~${t.startingMsrp.toLocaleString()}
+                        <div className="text-[11px] text-slate-300 font-mono font-medium pt-2 mt-2 border-t border-slate-800/80 flex items-center justify-between">
+                          <span className="text-slate-500">MSRP</span>
+                          <span className="text-white">${t.startingMsrp.toLocaleString()}</span>
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-            ) : (
-              <div className="text-slate-400 text-xs py-2">
-                Type make and model to view trims.
-              </div>
-            )}
-
-            {/* Custom trim input */}
-            <div className="pt-2 flex items-center gap-2">
-              <span className="text-[11px] text-slate-400 whitespace-nowrap">Selected / Custom Trim:</span>
-              <input
-                type="text"
-                value={trim}
-                onChange={(e) => setTrim(e.target.value)}
-                placeholder="e.g. XLT, Lariat, EX, Limited"
-                className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs font-medium"
-                required
-              />
-            </div>
+            ) : null}
           </div>
 
-          {/* STEP 3: DEEP ENGINE OPTIONS BREAKOUT (e.g. 2.7L vs 3.5L vs 5.0L V8) */}
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-              <div className="flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Step 3: Engine Size & Architecture Breakout
-                </span>
-                {isLoadingOptions && (
-                  <span className="flex items-center gap-1 text-[11px] text-amber-400 font-normal">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  </span>
-                )}
-              </div>
-              <span className="text-[11px] text-slate-400">
-                Compare distinct engine families & known vulnerabilities
-              </span>
-            </div>
-
-            {/* Distinct Engine Cards */}
+          {/* Section 3: Powertrain & Drivetrain */}
+          {optionsResult?.engines && optionsResult.engines.length > 0 && (
             <div className="space-y-3">
-              {optionsResult?.engines.map((eng) => {
-                const isSelected = selectedEngineId === eng.id;
-                return (
-                  <div
-                    key={eng.id}
-                    onClick={() => setSelectedEngineId(eng.id)}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
-                      isSelected
-                        ? 'bg-amber-500/10 border-amber-500 shadow-md ring-1 ring-amber-500/30'
-                        : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    {/* Header Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-3">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-white">
-                            {eng.name}
-                          </span>
-                          {eng.aspiration && (
-                            <span className="text-[10px] bg-slate-800 text-amber-300 font-semibold px-2 py-0.5 rounded border border-slate-700">
-                              {eng.aspiration}
-                            </span>
-                          )}
-                          <span className="text-[10px] bg-slate-800 text-cyan-300 font-medium px-2 py-0.5 rounded border border-slate-700">
-                            {eng.displacement}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {eng.configuration} · {eng.fuelType}
-                        </div>
-                      </div>
+              <span className="text-xs font-semibold text-white uppercase tracking-wider block">
+                3. Powertrain & Engine Architecture
+              </span>
 
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-baseline gap-2 font-mono tabular-nums text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {optionsResult.engines.map((eng) => {
+                  const isSelected = selectedEngineId === eng.id;
+                  return (
+                    <div
+                      key={eng.id}
+                      onClick={() => setSelectedEngineId(eng.id)}
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-slate-800/60 border-amber-500/80 text-white shadow-xs ring-1 ring-amber-500/30'
+                          : 'bg-slate-950/80 border-slate-800/80 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-xs font-semibold text-white">{eng.name}</span>
+                            <span className="text-[11px] text-slate-400 font-mono">{eng.displacement}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            {eng.configuration} · {eng.fuelType}
+                          </div>
+                        </div>
+
+                        <div className="text-right font-mono tabular-nums text-xs shrink-0">
                           {eng.horsepower && (
-                            <span className="text-white font-bold">
-                              {eng.horsepower} <span className="text-slate-400 font-normal text-[10px]">HP</span>
-                            </span>
+                            <span className="text-white font-medium">{eng.horsepower} HP</span>
                           )}
-                          {eng.torqueLbFt && (
-                            <span className="text-amber-400 font-bold">
-                              {eng.torqueLbFt} <span className="text-slate-400 font-normal text-[10px]">lb-ft</span>
-                            </span>
-                          )}
-                          {eng.towingCapacityLbs && (
-                            <span className="text-cyan-400 font-bold">
-                              {eng.towingCapacityLbs.toLocaleString()} <span className="text-slate-400 font-normal text-[10px]">lbs tow</span>
-                            </span>
+                          {eng.efficiency?.combined && (
+                            <div className="text-[10px] text-emerald-400">
+                              {eng.efficiency.combined} MPG
+                            </div>
                           )}
                         </div>
-                        <div
-                          className={`w-5 h-5 rounded-full flex items-center justify-center border transition-colors ${
-                            isSelected
-                              ? 'bg-amber-500 border-amber-400 text-slate-950 font-bold'
-                              : 'border-slate-700 bg-slate-950'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                        </div>
                       </div>
+
+                      {eng.keyReliabilityNotes && (
+                        <p className="text-[11px] text-slate-400 mt-2 pt-2 border-t border-slate-800/60 line-clamp-2">
+                          {eng.keyReliabilityNotes}
+                        </p>
+                      )}
                     </div>
-
-                    {/* Detailed Mechanical Comparison Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-xs">
-                      {/* Pros & Architectural Strengths */}
-                      <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3" /> Key Strengths & Engineering Profile
-                        </span>
-                        {eng.pros && eng.pros.length > 0 ? (
-                          <ul className="space-y-1 text-[11px] text-slate-300 list-disc list-inside">
-                            {eng.pros.map((pro, pIdx) => (
-                              <li key={pIdx} className="leading-tight">{pro}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-[11px] text-slate-300">{eng.keyReliabilityNotes}</p>
-                        )}
-                      </div>
-
-                      {/* Known Mechanical Vulnerabilities / Watchouts */}
-                      <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-800/60 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-rose-400 tracking-wider flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" /> Known Failure Points & Vulnerabilities
-                        </span>
-                        {eng.watchouts && eng.watchouts.length > 0 ? (
-                          <ul className="space-y-1 text-[11px] text-slate-300 list-disc list-inside">
-                            {eng.watchouts.map((watch, wIdx) => (
-                              <li key={wIdx} className="leading-tight">{watch}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-[11px] text-slate-300">{eng.keyReliabilityNotes}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Footer Row: Efficiency & Best For */}
-                    <div className="mt-3 pt-2 border-t border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
-                      <div className="text-slate-400">
-                        <strong className="text-amber-400/90 font-medium">Ideal For: </strong>
-                        <span>{eng.bestFor || 'General daily driving and highway commuting.'}</span>
-                      </div>
-                      <div className="text-emerald-400 font-mono font-bold whitespace-nowrap self-start sm:self-auto">
-                        EPA: {eng.efficiency.combined} {eng.efficiency.unit} ({eng.efficiency.city} City / {eng.efficiency.highway} Hwy)
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Powertrain Reliability Recommendation */}
-            {optionsResult?.reliabilityRecommendation && (
-              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 text-xs text-slate-300 flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="text-amber-400 font-bold block mb-0.5">
-                    Engine Engineering Verdict:
-                  </strong>
-                  <p className="text-[11px] leading-relaxed text-slate-300">
-                    {optionsResult.reliabilityRecommendation}
-                  </p>
-                </div>
+                  );
+                })}
               </div>
-            )}
-          </div>
-
-          {/* STEP 4: DRIVETRAIN (4x4 vs 2x4 vs AWD) */}
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-              <div className="flex items-center gap-2">
-                <Compass className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Step 4: Drivetrain (4x4 vs 2x4 / 2WD vs AWD)
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-400">Traction & Transfer Case System</span>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {optionsResult?.drivetrains.map((dt) => {
-                const isSelected = selectedDrivetrainId === dt.id;
-                return (
-                  <div
-                    key={dt.id}
-                    onClick={() => setSelectedDrivetrainId(dt.id)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                      isSelected
-                        ? 'bg-amber-500/20 border-amber-500 text-white shadow-sm ring-1 ring-amber-500/30'
-                        : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold">{dt.name}</span>
-                        {isSelected && <Check className="w-4 h-4 text-amber-400" />}
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1 leading-snug font-normal">
-                        {dt.description}
-                      </p>
-                    </div>
-                    {dt.keyReliabilityNotes && (
-                      <div className="text-[10px] text-slate-500 mt-2 pt-1 border-t border-slate-800/60 italic">
-                        {dt.keyReliabilityNotes}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          {/* Section 4: Purchase Criteria */}
+          <div className="space-y-3">
+            <span className="text-xs font-semibold text-white uppercase tracking-wider block">
+              4. Target Parameters & Budget
+            </span>
 
-          {/* STEP 5: BUDGET, MILEAGE & ZIP */}
-          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
-            <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-              Step 5: Purchase Budget & Criteria
-            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <label className="text-slate-300 block mb-1 font-medium">Condition</label>
+                <label className="text-slate-400 block mb-1 text-[11px] font-medium">Condition</label>
                 <select
                   value={condition}
                   onChange={(e) => setCondition(e.target.value as any)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-lg p-2.5 text-white text-xs"
                 >
-                  <option value="Used">Used</option>
-                  <option value="Certified Pre-Owned">Certified Pre-Owned (CPO)</option>
                   <option value="New">Brand New</option>
+                  <option value="Certified Pre-Owned">Certified Pre-Owned</option>
+                  <option value="Used">Used</option>
                 </select>
               </div>
 
               <div>
-                <label className="text-slate-300 block mb-1 font-medium">Target Budget ($)</label>
+                <label className="text-slate-400 block mb-1 text-[11px] font-medium">Target Budget ($)</label>
                 <input
                   type="number"
                   step={500}
                   value={targetBudget}
                   onChange={(e) => setTargetBudget(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-lg p-2.5 text-white font-mono text-xs"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-slate-300 block mb-1 font-medium">Max Mileage</label>
+                <label className="text-slate-400 block mb-1 text-[11px] font-medium">Max Mileage</label>
                 <input
                   type="number"
                   step={1000}
                   value={maxMileage}
                   onChange={(e) => setMaxMileage(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-lg p-2.5 text-white font-mono text-xs"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-slate-300 block mb-1 font-medium">Buyer Zip Code</label>
+                <label className="text-slate-400 block mb-1 text-[11px] font-medium">Buyer Zip Code</label>
                 <input
                   type="text"
                   value={userZipCode}
                   onChange={(e) => setUserZipCode(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-lg p-2.5 text-white font-mono text-xs"
                   required
                 />
               </div>
             </div>
           </div>
 
-          {/* AI Auto-scan toggle */}
-          <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 text-amber-400 shrink-0" />
+          {/* AI Diagnostics Checkbox */}
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
               <div>
-                <span className="text-slate-200 font-bold block text-xs">
-                  Run Live Gemini AI Diagnostic Scan on Creation
+                <span className="text-white font-medium block text-xs">
+                  Run Gemini Reliability Scan on Launch
                 </span>
                 <span className="text-[11px] text-slate-400 block">
-                  Scans live failure reports tailored specifically to {selectedEngine?.displacement || 'this engine'} and {selectedDrivetrain?.type || 'drivetrain'}
+                  Scans live failure reports and technical service bulletins for this powertrain.
                 </span>
               </div>
             </div>
@@ -794,21 +911,21 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
             />
           </div>
 
-          {/* Form Actions */}
-          <div className="pt-2 border-t border-slate-800 flex justify-end gap-3">
+          {/* Actions */}
+          <div className="pt-2 border-t border-slate-800 flex justify-end items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-750 transition-colors"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-lg text-xs font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg shadow-md transition-colors flex items-center gap-2"
+              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2"
             >
               <Car className="w-4 h-4" />
-              Launch Journey for {year} {make} {model} {trim}
+              <span>Launch Journey · {year} {effectiveMake} {effectiveModel} {effectiveTrim}</span>
             </button>
           </div>
         </form>
