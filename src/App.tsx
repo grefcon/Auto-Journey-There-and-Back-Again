@@ -15,7 +15,12 @@ import { CommunityDealsTab } from './components/tabs/CommunityDealsTab';
 import { InventoryTab } from './components/tabs/InventoryTab';
 import { CostOfOwnershipTab } from './components/tabs/CostOfOwnershipTab';
 import { ComparisonTab } from './components/tabs/ComparisonTab';
+import { TrimLevelsTab } from './components/tabs/TrimLevelsTab';
+import { CompsDeskTab } from './components/tabs/CompsDeskTab';
 import { NewJourneyModal } from './components/NewJourneyModal';
+import { StageGuide } from './components/StageGuide';
+import { getStageDefinition } from './utils/journeyStages';
+import type { TabId } from './utils/journeyStages';
 import {
   Sparkles,
   CheckCircle2,
@@ -35,9 +40,11 @@ export default function App() {
   const [activeJourneyId, setActiveId] = useState<string>(() =>
     getActiveJourneyId(loadJourneys())
   );
-  const [activeTab, setActiveTab] = useState<
-    'reliability' | 'deals' | 'inventory' | 'tco' | 'compare'
-  >('reliability');
+  // Land on the tab that serves the journey's current stage instead of always
+  // opening the mechanical-risk wall.
+  const [activeTab, setActiveTab] = useState<TabId>(() =>
+    getStageDefinition(loadJourneys()[0]?.stage).primaryTab
+  );
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
   const [isAiScanning, setIsAiScanning] = useState(false);
@@ -65,6 +72,21 @@ export default function App() {
     );
   };
 
+  /**
+   * Changing stage now moves the app to the step's own tools. Previously the
+   * stage dropdown updated a field and nothing else happened.
+   */
+  const handleStageChange = (stage: CarJourney['stage']) => {
+    const targetId = journeys.some((j) => j.id === activeJourneyId)
+      ? activeJourneyId
+      : journeys[0]?.id;
+    if (!targetId) return;
+    setJourneys((prev) =>
+      prev.map((j) => (j.id === targetId ? { ...j, stage } : j))
+    );
+    setActiveTab(getStageDefinition(stage).primaryTab);
+  };
+
   const handleCreateJourney = async (
     newJourney: CarJourney,
     autoScan: boolean
@@ -72,6 +94,9 @@ export default function App() {
     setJourneys((prev) => [newJourney, ...prev]);
     setActiveId(newJourney.id);
     setActiveJourneyId(newJourney.id);
+    // Creating a journey states an intent: open the tools for the stage the
+    // buyer says they are in, rather than leaving them on the previous tab.
+    setActiveTab(getStageDefinition(newJourney.stage).primaryTab);
 
     if (autoScan) {
       triggerAiScanForJourney(newJourney);
@@ -247,7 +272,7 @@ export default function App() {
                 No Active Car Journeys
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                You've cleared your past vehicle purchase journeys. Choose a car below or configure a custom vehicle to inspect engine failure risks, local inventory, and 5-year ownership costs.
+                You've cleared your past car journeys. Start a new one and tell it where you are in the buying process — it opens on the help for that step, from trim levels and real failure windows through to comps and negotiation.
               </p>
             </div>
 
@@ -318,11 +343,28 @@ export default function App() {
               onTriggerAiScan={() => triggerAiScanForJourney(activeJourney)}
               isAiScanning={isAiScanning}
               onDeleteJourney={handleDeleteJourney}
+              onStageChange={handleStageChange}
+            />
+          )}
+
+          {/* Journey spine: where you are, what to do now, what's next */}
+          {activeJourney && (
+            <StageGuide
+              journey={activeJourney}
+              onSelectTab={setActiveTab}
+              onStageChange={handleStageChange}
             />
           )}
 
           {/* Main Tab Views */}
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+            {activeTab === 'trims' && activeJourney && (
+              <TrimLevelsTab
+                journey={activeJourney}
+                onUpdateJourney={handleUpdateJourney}
+              />
+            )}
+
             {activeTab === 'reliability' && activeJourney && (
               <ReliabilityTab
                 journey={activeJourney}
@@ -341,6 +383,13 @@ export default function App() {
 
             {activeTab === 'inventory' && activeJourney && (
               <InventoryTab
+                journey={activeJourney}
+                onUpdateJourney={handleUpdateJourney}
+              />
+            )}
+
+            {activeTab === 'comps' && activeJourney && (
+              <CompsDeskTab
                 journey={activeJourney}
                 onUpdateJourney={handleUpdateJourney}
               />

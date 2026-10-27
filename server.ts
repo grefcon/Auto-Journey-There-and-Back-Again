@@ -18,6 +18,13 @@ app.use(express.json());
 
 // Initialize Google GenAI client if key is configured
 const apiKey = process.env.GEMINI_API_KEY;
+
+// Bound every upstream AI call. Without this a slow or unreachable Gemini
+// endpoint holds the HTTP request open indefinitely: the browser spins, and the
+// curated offline dataset that already exists is never reached. On timeout the
+// call throws and each endpoint's catch falls back to that offline data.
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 15000);
+
 const ai = apiKey
   ? new GoogleGenAI({
       apiKey,
@@ -25,6 +32,7 @@ const ai = apiKey
         headers: {
           'User-Agent': 'aistudio-build',
         },
+        timeout: AI_TIMEOUT_MS,
       },
     })
   : null;
@@ -178,8 +186,8 @@ Return JSON with:
     const parsed = JSON.parse(response.text || '{}');
     return res.json(parsed);
   } catch (error: any) {
-    console.error('Error looking up car options:', error);
-    return res.status(500).json({ error: error.message || 'Failed to lookup car options' });
+    console.warn('Gemini car-options failed, serving offline dataset:', error?.message || error);
+    return res.json(carData.getCarOptions(year, make, model));
   }
 });
 
@@ -327,8 +335,10 @@ Include:
     const parsed = JSON.parse(response.text || '{}');
     return res.json(parsed);
   } catch (error: any) {
-    console.error('Error generating reliability analysis:', error);
-    return res.status(500).json({ error: error.message || 'Failed to analyze reliability' });
+    console.warn('Gemini reliability-analysis failed, serving offline dataset:', error?.message || error);
+    return res.json(
+      carData.getReliabilityAnalysis(year, make, model, trim, engine, drivetrain, mileage)
+    );
   }
 });
 
@@ -439,8 +449,8 @@ Format as JSON with:
     const parsed = JSON.parse(response.text || '{}');
     return res.json(parsed);
   } catch (error: any) {
-    console.error('Error scouting deals:', error);
-    return res.status(500).json({ error: error.message || 'Failed to scout deals' });
+    console.warn('Gemini scout-deals failed, serving offline dataset:', error?.message || error);
+    return res.json(carData.getDealScout(year, make, model, trim, zipCode, condition));
   }
 });
 
@@ -511,8 +521,8 @@ Provide:
     const parsed = JSON.parse(response.text || '{}');
     return res.json(parsed);
   } catch (error: any) {
-    console.error('Error analyzing quote:', error);
-    return res.status(500).json({ error: error.message || 'Failed to analyze quote' });
+    console.warn('Gemini quote audit failed, serving offline dataset:', error?.message || error);
+    return res.json(carData.analyzeDealQuote(carDescription, lineItemsText, rawQuote));
   }
 });
 

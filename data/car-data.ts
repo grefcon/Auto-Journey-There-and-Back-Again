@@ -480,7 +480,14 @@ export interface DealScoutResult {
 }
 
 /** Heuristic fallback for scout-deals. */
-export function getDealScout(year: number, make: string, model: string, trim: string, zipCode: string, condition: string): DealScoutResult {
+export function getDealScout(
+  year: number,
+  make: string,
+  model: string,
+  trim = '',
+  zipCode = '',
+  condition = 'Used'
+): DealScoutResult {
   const buyRegion = zipCode?.slice(0, 2) || 'TX';
   const state = buyRegion === 'CA' ? 'California' : buyRegion === 'TX' ? 'Texas' : 'Midwest';
   const discount = 8 + Math.floor(Math.random() * 7);

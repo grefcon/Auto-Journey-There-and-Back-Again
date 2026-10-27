@@ -1,5 +1,6 @@
 import React from 'react';
 import { CarJourney } from '../types/carJourney';
+import { JOURNEY_STAGES } from '../utils/journeyStages';
 import {
   AlertTriangle,
   ShieldCheck,
@@ -19,6 +20,8 @@ interface JourneyBannerProps {
   onTriggerAiScan: () => void;
   isAiScanning: boolean;
   onDeleteJourney?: (id: string) => void;
+  /** When supplied, changing stage also navigates the app to that step. */
+  onStageChange?: (stage: CarJourney['stage']) => void;
 }
 
 export const JourneyBanner: React.FC<JourneyBannerProps> = ({
@@ -28,17 +31,13 @@ export const JourneyBanner: React.FC<JourneyBannerProps> = ({
   onTriggerAiScan,
   isAiScanning,
   onDeleteJourney,
+  onStageChange,
 }) => {
-  const stages: CarJourney['stage'][] = [
-    'Researching',
-    'Screening Issues',
-    'Tracking Inventory',
-    'Inspecting',
-    'Negotiating',
-    'Purchased',
-  ];
-
   const handleStageChange = (newStage: CarJourney['stage']) => {
+    if (onStageChange) {
+      onStageChange(newStage);
+      return;
+    }
     onUpdateJourney({
       ...journey,
       stage: newStage,
@@ -102,9 +101,9 @@ export const JourneyBanner: React.FC<JourneyBannerProps> = ({
                   className="bg-transparent text-amber-400 font-bold focus:outline-none cursor-pointer text-xs pr-4 appearance-none"
                   title="Update journey stage"
                 >
-                  {stages.map((st, sIdx) => (
-                    <option key={st} value={st} className="bg-slate-900 text-slate-200">
-                      {sIdx + 1}. {st}
+                  {JOURNEY_STAGES.map((st) => (
+                    <option key={st.id} value={st.id} className="bg-slate-900 text-slate-200">
+                      {st.order}. {st.id}
                     </option>
                   ))}
                 </select>
