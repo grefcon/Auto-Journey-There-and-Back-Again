@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import express, { Request, Response } from 'express';
 import http from 'http';
+import carData from './data/car-data';
 import path from 'path';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -17,6 +18,13 @@ app.use(express.json());
 
 // Initialize Google GenAI client if key is configured
 const apiKey = process.env.GEMINI_API_KEY;
+
+// Bound every upstream AI call. Without this a slow or unreachable Gemini
+// endpoint holds the HTTP request open indefinitely: the browser spins, and the
+// curated offline dataset that already exists is never reached. On timeout the
+// call throws and each endpoint's catch falls back to that offline data.
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 15000);
+
 const ai = apiKey
   ? new GoogleGenAI({
       apiKey,
@@ -24,6 +32,7 @@ const ai = apiKey
         headers: {
           'User-Agent': 'aistudio-build',
         },
+        timeout: AI_TIMEOUT_MS,
       },
     })
   : null;
@@ -36,9 +45,7 @@ app.post('/api/car-options', async (req: Request, res: Response) => {
   }
 
   if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server.',
-    });
+    return res.json(carData.getCarOptions(year, make, model));
   }
 
   try {
@@ -179,8 +186,8 @@ Return JSON with:
     const parsed = JSON.parse(response.text || '{}');
     return res.json(parsed);
   } catch (error: any) {
-    console.error('Error looking up car options:', error);
-    return res.status(500).json({ error: error.message || 'Failed to lookup car options' });
+    console.warn('Gemini car-options failed, serving offline dataset:', error?.message || error);
+    return res.json(carData.getCarOptions(year, make, model));
   }
 });
 
@@ -192,9 +199,7 @@ app.post('/api/reliability-analysis', async (req: Request, res: Response) => {
   }
 
   if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server. Please check the Secrets panel.',
-    });
+    return res.json(carData.getReliabilityAnalysis(year, make, model, trim, engine, drivetrain, mileage));
   }
 
   try {
@@ -330,8 +335,10 @@ Include:
     const parsed = JSON.parse(response.text || '{}');
     return res.json(parsed);
   } catch (error: any) {
-    console.error('Error generating reliability analysis:', error);
-    return res.status(500).json({ error: error.message || 'Failed to analyze reliability' });
+    console.warn('Gemini reliability-analysis failed, serving offline dataset:', error?.message || error);
+    return res.json(
+      carData.getReliabilityAnalysis(year, make, model, trim, engine, drivetrain, mileage)
+    );
   }
 });
 
@@ -343,9 +350,7 @@ app.post('/api/scout-deals', async (req: Request, res: Response) => {
   }
 
   if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server.',
-    });
+    return res.json(carData.getDealScout(year, make, model, trim, zipCode, condition));
   }
 
   try {
@@ -444,8 +449,8 @@ Format as JSON with:
     const parsed = JSON.parse(response.text || '{}');
     return res.json(parsed);
   } catch (error: any) {
-    console.error('Error scouting deals:', error);
-    return res.status(500).json({ error: error.message || 'Failed to scout deals' });
+    console.warn('Gemini scout-deals failed, serving offline dataset:', error?.message || error);
+    return res.json(carData.getDealScout(year, make, model, trim, zipCode, condition));
   }
 });
 
@@ -454,9 +459,7 @@ app.post('/api/analyze-dealer-quote', async (req: Request, res: Response) => {
   const { carDescription, lineItemsText, rawQuote } = req.body;
 
   if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server.',
-    });
+    return res.json(carData.analyzeDealQuote(carDescription, lineItemsText, rawQuote));
   }
 
   try {
@@ -518,8 +521,8 @@ Provide:
     const parsed = JSON.parse(response.text || '{}');
     return res.json(parsed);
   } catch (error: any) {
-    console.error('Error analyzing quote:', error);
-    return res.status(500).json({ error: error.message || 'Failed to analyze quote' });
+    console.warn('Gemini quote audit failed, serving offline dataset:', error?.message || error);
+    return res.json(carData.analyzeDealQuote(carDescription, lineItemsText, rawQuote));
   }
 });
 
@@ -1106,9 +1109,20 @@ async function startServer() {
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
+    // Vite refuses any request whose Host header is not allow-listed (its DNS
+    // rebinding guard) and answers 403 "Blocked request". When this dev server is
+    // fronted by a public hostname -- e.g. WP Engine's Node hosting -- that
+    // hostname must be listed here or every request to the site 403s. The
+    // setting must be passed inline: a `server` block in vite.config.ts does not
+    // reach the resolved config for this middleware setup.
+    // Restrict with VITE_ALLOWED_HOSTS="a.example.com,b.example.com".
+    const allowedHosts: string[] | true = process.env.VITE_ALLOWED_HOSTS
+      ? process.env.VITE_ALLOWED_HOSTS.split(',').map((h) => h.trim()).filter(Boolean)
+      : true;
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
+        allowedHosts,
         hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
         watch: process.env.DISABLE_HMR === 'true' ? null : {},
       },

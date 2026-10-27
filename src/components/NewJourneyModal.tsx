@@ -7,6 +7,7 @@ import {
   CarOptionsLookupResult,
 } from '../types/carJourney';
 import { lookupVehicleOptions, POPULAR_VEHICLE_OPTIONS } from '../utils/carCatalog';
+import { JOURNEY_STAGES } from '../utils/journeyStages';
 import {
   Sparkles,
   X,
@@ -49,6 +50,7 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
   const [userZipCode, setUserZipCode] = useState<string>('90210');
   const [notes, setNotes] = useState<string>('');
   const [autoScanAi, setAutoScanAi] = useState<boolean>(true);
+  const [stage, setStage] = useState<CarJourney['stage']>('Researching');
 
   // Engine & Drivetrain Lookup State - Initialize immediately with pre-indexed Ford F-150 data
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false);
@@ -191,7 +193,7 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
       targetBudget,
       maxMileage,
       userZipCode,
-      stage: 'Researching',
+      stage,
       createdDate: new Date().toISOString().split('T')[0],
       notes: notes || `Configured ${year} ${make} ${model} ${trim} with ${selectedEngine?.name || ''} and ${selectedDrivetrain?.name || ''}.`,
       
@@ -400,11 +402,56 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 text-xs">
-          {/* STEP 1: Basic Vehicle Identity */}
+          {/* STEP 1: Where the buyer is in their journey */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <div className="flex items-center gap-2">
+                <Compass className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Step 1: Where are you in your journey?
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-400">You can change this any time</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {JOURNEY_STAGES.map((s) => {
+                const isSelected = stage === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => setStage(s.id)}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-amber-500/20 border-amber-500 text-white shadow-sm ring-1 ring-amber-500/30'
+                        : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                          isSelected ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+                        }`}
+                      >
+                        {s.order}
+                      </span>
+                      <span className="text-xs font-bold">{s.id}</span>
+                    </div>
+                    <p className="text-[11px] mt-1.5 leading-relaxed opacity-90">{s.headline}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Your journey opens on the tools for this step rather than a generic dashboard, and the
+              guide bar at the top of the app keeps pointing you at what matters right now.
+            </p>
+          </div>
+
+          {/* STEP 2: Basic Vehicle Identity */}
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-                Step 1: Vehicle Year, Make & Model
+                Step 2: Vehicle Year, Make & Model
               </span>
               <span className="text-[11px] text-slate-400">
                 Type any car to dynamically retrieve options
@@ -448,13 +495,13 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
             </div>
           </div>
 
-          {/* STEP 2: FACTORY TRIMS POPULATION */}
+          {/* STEP 3: FACTORY TRIMS POPULATION */}
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-amber-400" />
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Step 2: Available Factory Trims for {year} {make} {model}
+                  Step 3: Available Factory Trims for {year} {make} {model}
                 </span>
                 {isLoadingOptions && (
                   <span className="flex items-center gap-1 text-[11px] text-amber-400 font-normal">
@@ -522,13 +569,13 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
             </div>
           </div>
 
-          {/* STEP 3: DEEP ENGINE OPTIONS BREAKOUT (e.g. 2.7L vs 3.5L vs 5.0L V8) */}
+          {/* STEP 4: DEEP ENGINE OPTIONS BREAKOUT (e.g. 2.7L vs 3.5L vs 5.0L V8) */}
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <div className="flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-amber-400" />
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Step 3: Engine Size & Architecture Breakout
+                  Step 4: Engine Size & Architecture Breakout
                 </span>
                 {isLoadingOptions && (
                   <span className="flex items-center gap-1 text-[11px] text-amber-400 font-normal">
@@ -672,13 +719,13 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
             )}
           </div>
 
-          {/* STEP 4: DRIVETRAIN (4x4 vs 2x4 vs AWD) */}
+          {/* STEP 5: DRIVETRAIN (4x4 vs 2x4 vs AWD) */}
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <div className="flex items-center gap-2">
                 <Compass className="w-4 h-4 text-amber-400" />
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Step 4: Drivetrain (4x4 vs 2x4 / 2WD vs AWD)
+                  Step 5: Drivetrain (4x4 vs 2x4 / 2WD vs AWD)
                 </span>
               </div>
               <span className="text-[11px] text-slate-400">Traction & Transfer Case System</span>
@@ -717,10 +764,10 @@ export const NewJourneyModal: React.FC<NewJourneyModalProps> = ({
             </div>
           </div>
 
-          {/* STEP 5: BUDGET, MILEAGE & ZIP */}
+          {/* STEP 6: BUDGET, MILEAGE & ZIP */}
           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-3">
             <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-              Step 5: Purchase Budget & Criteria
+              Step 6: Purchase Budget & Criteria
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>

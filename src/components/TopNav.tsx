@@ -1,10 +1,12 @@
 import React from 'react';
 import { CarJourney } from '../types/carJourney';
 import { Car, ChevronDown, Plus, Sparkles, Layers } from 'lucide-react';
+import { NAV_ITEMS } from '../utils/journeyStages';
+import type { NavItemDef, TabId } from '../utils/journeyStages';
 
 interface TopNavProps {
-  activeTab: 'reliability' | 'deals' | 'inventory' | 'tco' | 'compare';
-  setActiveTab: (tab: 'reliability' | 'deals' | 'inventory' | 'tco' | 'compare') => void;
+  activeTab: TabId;
+  setActiveTab: (tab: TabId) => void;
   journeys: CarJourney[];
   activeJourneyId: string;
   onSelectJourney: (id: string) => void;
@@ -40,13 +42,10 @@ export const TopNav: React.FC<TopNavProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const navItems = [
-    { id: 'reliability', label: 'Issues & Mechanical Risks' },
-    { id: 'deals', label: 'Deals & Quotes' },
-    { id: 'inventory', label: 'Market Value & Inventory' },
-    { id: 'tco', label: 'Total Cost of Ownership' },
-    { id: 'compare', label: `Compare Cars (${journeys.length})` },
-  ] as const;
+  // Ordered along the journey (research -> shop -> buy -> own), not by tool name.
+  const navItems = NAV_ITEMS;
+  const labelFor = (item: NavItemDef) =>
+    item.id === 'compare' ? `${item.label} (${journeys.length})` : item.label;
 
   return (
     <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800">
@@ -80,7 +79,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                     : 'text-slate-300 hover:text-white hover:bg-slate-900'
                 }`}
               >
-                {item.label}
+                {labelFor(item)}
               </button>
             );
           })}
@@ -229,7 +228,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              {item.label}
+              {labelFor(item)}
             </button>
           );
         })}
