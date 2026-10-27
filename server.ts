@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import express, { Request, Response } from 'express';
 import http from 'http';
+import carData from './data/car-data';
 import path from 'path';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -36,9 +37,7 @@ app.post('/api/car-options', async (req: Request, res: Response) => {
   }
 
   if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server.',
-    });
+    return res.json(carData.getCarOptions(year, make, model));
   }
 
   try {
@@ -192,9 +191,7 @@ app.post('/api/reliability-analysis', async (req: Request, res: Response) => {
   }
 
   if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server. Please check the Secrets panel.',
-    });
+    return res.json(carData.getReliabilityAnalysis(year, make, model, trim, engine, drivetrain, mileage));
   }
 
   try {
@@ -343,9 +340,7 @@ app.post('/api/scout-deals', async (req: Request, res: Response) => {
   }
 
   if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server.',
-    });
+    return res.json(carData.getDealScout(year, make, model, trim, zipCode, condition));
   }
 
   try {
@@ -454,9 +449,7 @@ app.post('/api/analyze-dealer-quote', async (req: Request, res: Response) => {
   const { carDescription, lineItemsText, rawQuote } = req.body;
 
   if (!ai) {
-    return res.status(503).json({
-      error: 'GEMINI_API_KEY is not configured on the server.',
-    });
+    return res.json(carData.analyzeDealQuote(carDescription, lineItemsText, rawQuote));
   }
 
   try {
