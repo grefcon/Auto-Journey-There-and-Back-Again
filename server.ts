@@ -1099,9 +1099,20 @@ async function startServer() {
 
   if (!isProduction) {
     const { createServer: createViteServer } = await import('vite');
+    // Vite refuses any request whose Host header is not allow-listed (its DNS
+    // rebinding guard) and answers 403 "Blocked request". When this dev server is
+    // fronted by a public hostname -- e.g. WP Engine's Node hosting -- that
+    // hostname must be listed here or every request to the site 403s. The
+    // setting must be passed inline: a `server` block in vite.config.ts does not
+    // reach the resolved config for this middleware setup.
+    // Restrict with VITE_ALLOWED_HOSTS="a.example.com,b.example.com".
+    const allowedHosts: string[] | true = process.env.VITE_ALLOWED_HOSTS
+      ? process.env.VITE_ALLOWED_HOSTS.split(',').map((h) => h.trim()).filter(Boolean)
+      : true;
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
+        allowedHosts,
         hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
         watch: process.env.DISABLE_HMR === 'true' ? null : {},
       },
