@@ -1,0 +1,10 @@
+# Files/dirs that must never be baked into the Cloud Run image.
+# Secrets (GEMINI_API_KEY, APP_URL) belong in Cloud Run secrets/env vars, not the image.
+
+.env
+.env.*
+*.log
+node_modules
+dist
+server.js
+coverage
